@@ -2,6 +2,59 @@
 
 Concise but detailed reference for contributors working across the `moeru-ai/airi` monorepo. Improve code when you touch it; avoid one-off patterns.
 
+## Branch / Fork / Planning Expectations
+
+- Treat this repository as an **upstream-friendly fork** of `moeru-ai/airi`.
+- Prefer additive, isolated changes over invasive rewrites.
+- Keep the main branch easy to sync with upstream.
+- Do work on feature branches unless explicitly told otherwise.
+- For large or ambiguous tasks, **plan before implementing**.
+- Break work into milestones with acceptance criteria.
+- Distinguish clearly between:
+  - MVP / must-have
+  - next-step improvements
+  - experimental or later ideas
+- Before major edits, explain the intended approach briefly.
+- Use `PLANS.md` for milestone plans, scope, risks, and acceptance criteria.
+- Update planning docs when the architecture changes materially.
+
+## Project Direction for This Fork
+
+This fork is being extended from a desktop AI companion app into a self-hosted multi-component system with:
+
+- AIRI as the client-facing desktop application
+- a separate backend service for memory, integrations, messaging, reminders, and service orchestration
+- future support for mobile/messaging endpoints and special hardware nodes
+
+### Architecture guardrails for fork-specific work
+
+- Keep the backend as a **separate application/service** from AIRI.
+- Favor modular boundaries and stable interfaces between AIRI and the backend.
+- Prefer self-hosted, open-source components.
+- Avoid hard-coding model-specific assumptions; Ollama is current, not permanent.
+- Put experimental features behind flags or separate modules.
+- Reuse existing repo patterns when they are compatible with the new architecture.
+- Prefer small, reviewable commits and narrowly scoped diffs.
+- Do not introduce new production dependencies without explaining the tradeoff.
+- Document new subsystems and public interfaces.
+- Keep configuration centralized and environment-driven.
+
+### Do-not rules for this fork
+
+- Do not rewrite unrelated upstream AIRI features just to make the architecture feel cleaner.
+- Do not merge experimental hardware logic into the MVP path.
+- Do not implement broad automation or external platform messaging without a clear permission model.
+- Do not silently add closed-source services when open-source alternatives exist.
+
+### Priority order for fork-specific work
+
+1. Backend foundation
+2. Memory and persistent state
+3. Integration framework and permissions
+4. Reminders and proactive messaging
+5. External messaging platforms
+6. Advanced vision and hardware integrations
+
 ## Tech Stack (by surface)
 
 - **Desktop (stage-tamagotchi)**: Electron, Vue, Vite, TypeScript, Pinia, VueUse, Eventa (IPC/RPC), UnoCSS, Vitest, ESLint.
@@ -151,3 +204,12 @@ Concise but detailed reference for contributors working across the `moeru-ai/air
 - Maintain structured `README.md` documentation for each `packages/` and `apps/` entry, covering what it does, how to use it, when to use it, and when not to use it.
 - Always run `pnpm typecheck` and `pnpm lint:fix` after finishing a task.
 - Use Conventional Commits for commit messages (e.g., `feat: add runner reconnect backoff`).
+
+## Definition of Done for Fork-Specific Tasks
+
+Before considering a fork-specific task done:
+
+- run the relevant tests, lint, and type checks if available
+- summarize what changed
+- list any follow-up work or limitations
+- note any assumptions that affected the implementation
