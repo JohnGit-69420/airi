@@ -13,7 +13,7 @@ This app is intentionally small and additive for M1, so later milestones can lay
 ## How to use it
 
 1. Copy `.env.example` to `.env` and set `DEVICE_TOKENS`.
-2. Run development server:
+2. Run development server (scripts auto-load `.env` and optional `.env.local`):
 
 ```bash
 pnpm -F @proj-airi/companion-backend dev

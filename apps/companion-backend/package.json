@@ -4,11 +4,13 @@
   "version": "0.9.0-alpha.16",
   "private": true,
   "scripts": {
-    "dev": "tsx --watch src/app.ts",
-    "start": "tsx src/app.ts",
+    "apply:env": "dotenvx run -f .env -f .env.local --overload --ignore=MISSING_ENV_FILE",
+    "dev": "pnpm run apply:env -- tsx --watch src/app.ts",
+    "start": "pnpm run apply:env -- tsx src/app.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.52.0",
     "@guiiai/logg": "catalog:",
     "@hono/node-server": "^1.19.11",
     "hono": "catalog:",

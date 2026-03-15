@@ -407,6 +407,9 @@ importers:
 
   apps/companion-backend:
     dependencies:
+      '@dotenvx/dotenvx':
+        specifier: ^1.52.0
+        version: 1.52.0
       '@guiiai/logg':
         specifier: 'catalog:'
         version: 1.2.11
