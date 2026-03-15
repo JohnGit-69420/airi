@@ -244,6 +244,12 @@ Remaining tradeoffs to revisit after M1:
 - Whether reminder throughput requires queue infrastructure beyond DB-backed workers.
 - Whether admin web UI should remain separate from AIRI client settings long-term.
 
+## Memory adapter contract decision (draft)
+- Use an internal `MemoryProviderContract` to decouple chat runtime from specific memory backends.
+- Keep local JSON memory provider as default.
+- Evaluate mem0 behind a feature flag via a spike plan (`apps/companion-backend/MEM0-SPIKE.md`).
+- Do not change external API routes while evaluating provider alternatives.
+
 ## Maintainability notes for upstream sync
 - Keep fork-specific backend additions additive and isolated to a dedicated app/package area.
 - Avoid changing core AIRI runtime behavior until backend contracts stabilize.
