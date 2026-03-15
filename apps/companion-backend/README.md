@@ -136,3 +136,7 @@ curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/tele
 
 - not for production-grade auth/account management yet
 - not as a fully featured external messaging backend (Telegram and channel adapters are later milestones)
+
+## Client integration planning
+
+- For concrete desktop/web wiring points and rollout phases, see `CLIENT-INTEGRATION-POINTS.md`.
