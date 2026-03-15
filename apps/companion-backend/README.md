@@ -106,6 +106,8 @@ When configured, the runner also ticks automatically every `JELLYFIN_AWARENESS_I
 
 10. Test Telegram integration routes (manual poll + outbound send):
 
+Requires token scopes: `telegram:read`, `telegram:poll`, `telegram:send` and `telegram:send:voice` (voice path only).
+
 ```bash
 curl -X POST http://localhost:3100/api/telegram/poll \
   -H 'Authorization: Bearer desktop-dev-token'
