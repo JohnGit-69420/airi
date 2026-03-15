@@ -20,6 +20,9 @@ const RawEnvSchema = object({
   TELEGRAM_INBOUND_SESSION_ID: optional(string(), ''),
   TELEGRAM_POLL_INTERVAL_SECONDS: optional(string(), '30'),
   TELEGRAM_TTS_ENABLED: optional(string(), 'false'),
+  TELEGRAM_RETRY_ENABLED: optional(string(), 'true'),
+  TELEGRAM_MAX_RETRIES: optional(string(), '3'),
+  TELEGRAM_RETRY_BACKOFF_SECONDS: optional(string(), '60'),
   JELLYFIN_AWARENESS_ENABLED: optional(string(), 'false'),
   JELLYFIN_BASE_URL: optional(string(), ''),
   JELLYFIN_API_KEY: optional(string(), ''),
@@ -53,6 +56,9 @@ export interface Env {
   TELEGRAM_INBOUND_SESSION_ID: string
   TELEGRAM_POLL_INTERVAL_SECONDS: number
   TELEGRAM_TTS_ENABLED: boolean
+  TELEGRAM_RETRY_ENABLED: boolean
+  TELEGRAM_MAX_RETRIES: number
+  TELEGRAM_RETRY_BACKOFF_SECONDS: number
 
   JELLYFIN_AWARENESS_ENABLED: boolean
   JELLYFIN_BASE_URL: string
@@ -89,6 +95,16 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
 
   const telegramEnabled = raw.TELEGRAM_ENABLED === 'true'
   const telegramTtsEnabled = raw.TELEGRAM_TTS_ENABLED === 'true'
+  const telegramRetryEnabled = raw.TELEGRAM_RETRY_ENABLED === 'true'
+
+  const telegramMaxRetries = Number.parseInt(raw.TELEGRAM_MAX_RETRIES, 10)
+  const telegramRetryBackoffSeconds = Number.parseInt(raw.TELEGRAM_RETRY_BACKOFF_SECONDS, 10)
+
+  if (!Number.isFinite(telegramMaxRetries) || telegramMaxRetries <= 0)
+    throw new Error('TELEGRAM_MAX_RETRIES must be a positive integer')
+
+  if (!Number.isFinite(telegramRetryBackoffSeconds) || telegramRetryBackoffSeconds <= 0)
+    throw new Error('TELEGRAM_RETRY_BACKOFF_SECONDS must be a positive integer')
 
   const jellyfinIntervalSeconds = Number.parseInt(raw.JELLYFIN_AWARENESS_INTERVAL_SECONDS, 10)
   const jellyfinTriggerChance = Number.parseFloat(raw.JELLYFIN_AWARENESS_TRIGGER_CHANCE)
@@ -118,6 +134,9 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     TELEGRAM_INBOUND_SESSION_ID: raw.TELEGRAM_INBOUND_SESSION_ID,
     TELEGRAM_POLL_INTERVAL_SECONDS: telegramPollIntervalSeconds,
     TELEGRAM_TTS_ENABLED: telegramTtsEnabled,
+    TELEGRAM_RETRY_ENABLED: telegramRetryEnabled,
+    TELEGRAM_MAX_RETRIES: telegramMaxRetries,
+    TELEGRAM_RETRY_BACKOFF_SECONDS: telegramRetryBackoffSeconds,
 
     JELLYFIN_AWARENESS_ENABLED: jellyfinAwarenessEnabled,
     JELLYFIN_BASE_URL: raw.JELLYFIN_BASE_URL,

@@ -13,6 +13,7 @@ export function startTelegramRunner(runtime: ReturnType<typeof createTelegramRun
     return {
       stop() {},
       pollOnce: runtime.pollInbound,
+      retryOnce: runtime.retryFailedDeliveries,
     }
   }
 
@@ -22,6 +23,12 @@ export function startTelegramRunner(runtime: ReturnType<typeof createTelegramRun
       .then(result => logger.withFields(result).log('Telegram poll tick finished'))
       .catch((error) => {
         logger.withField('error', error instanceof Error ? error.message : String(error)).warn('Telegram poll tick failed')
+      })
+
+    void runtime.retryFailedDeliveries(10)
+      .then(result => logger.withFields(result).log('Telegram retry tick finished'))
+      .catch((error) => {
+        logger.withField('error', error instanceof Error ? error.message : String(error)).warn('Telegram retry tick failed')
       })
   }, intervalMs)
 
@@ -34,5 +41,6 @@ export function startTelegramRunner(runtime: ReturnType<typeof createTelegramRun
       clearInterval(timer)
     },
     pollOnce: runtime.pollInbound,
+    retryOnce: runtime.retryFailedDeliveries,
   }
 }

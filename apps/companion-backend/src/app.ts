@@ -61,6 +61,9 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     inboundSessionId: env.TELEGRAM_INBOUND_SESSION_ID,
     pollIntervalSeconds: env.TELEGRAM_POLL_INTERVAL_SECONDS,
     ttsEnabled: env.TELEGRAM_TTS_ENABLED,
+    retryEnabled: env.TELEGRAM_RETRY_ENABLED,
+    maxRetries: env.TELEGRAM_MAX_RETRIES,
+    retryBackoffSeconds: env.TELEGRAM_RETRY_BACKOFF_SECONDS,
   }, telegramStore, chatRuntime)
   const telegramRunner = startTelegramRunner(telegramRuntime, env.TELEGRAM_POLL_INTERVAL_SECONDS, env.TELEGRAM_ENABLED)
   const jellyfinAwarenessRunner = startJellyfinAwarenessRunner(env, chatRuntime)
@@ -87,6 +90,8 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     telegramDataPath,
     telegramEnabled: env.TELEGRAM_ENABLED,
     telegramPollIntervalSeconds: env.TELEGRAM_POLL_INTERVAL_SECONDS,
+    telegramRetryEnabled: env.TELEGRAM_RETRY_ENABLED,
+    telegramMaxRetries: env.TELEGRAM_MAX_RETRIES,
     jellyfinAwarenessEnabled: env.JELLYFIN_AWARENESS_ENABLED,
     jellyfinAwarenessIntervalSeconds: env.JELLYFIN_AWARENESS_INTERVAL_SECONDS,
     jellyfinAwarenessTriggerChance: env.JELLYFIN_AWARENESS_TRIGGER_CHANCE,

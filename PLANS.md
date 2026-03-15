@@ -150,7 +150,7 @@ Notes:
 
 ## Milestone status
 - Current active milestone: **M3 — Telegram messaging slice (scoped delivery)**.
-- M3 implementation focus: Telegram inbound/outbound flow, scoped permission boundaries, and operational config/secrets handling.
+- M3 implementation focus: Telegram inbound/outbound flow, scoped permission boundaries, and operational delivery/retry observability.
 
 ## 5) MVP scope (must-have)
 - Separate backend service skeleton with documented env/config.

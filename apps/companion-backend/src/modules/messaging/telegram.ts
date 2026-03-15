@@ -8,6 +8,9 @@ export interface TelegramConfig {
   inboundSessionId: string
   pollIntervalSeconds: number
   ttsEnabled: boolean
+  retryEnabled: boolean
+  maxRetries: number
+  retryBackoffSeconds: number
 }
 
 interface TelegramUpdate {
@@ -141,20 +144,94 @@ export function createTelegramRuntime(
       if (!config.botToken || !targetChatId)
         return { status: 'misconfigured' as const }
 
-      await sendTextMessage(config.botToken, targetChatId, input.text)
+      const delivery = await store.createDelivery({
+        text: input.text,
+        chatId: targetChatId,
+        voiceUrl: input.voiceUrl,
+        maxAttempts: Math.max(1, config.maxRetries),
+      })
 
-      if (config.ttsEnabled && input.voiceUrl)
-        await sendVoiceMessage(config.botToken, targetChatId, input.voiceUrl, input.text)
+      try {
+        await sendTextMessage(config.botToken, targetChatId, input.text)
+
+        const shouldSendVoice = Boolean(config.ttsEnabled && input.voiceUrl)
+        if (shouldSendVoice)
+          await sendVoiceMessage(config.botToken, targetChatId, input.voiceUrl!, input.text)
+
+        await store.markDeliverySent(delivery.id, shouldSendVoice, 'sent')
+
+        return {
+          status: 'sent' as const,
+          chatId: targetChatId,
+          ttsSent: shouldSendVoice,
+          deliveryId: delivery.id,
+        }
+      }
+      catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown telegram send error.'
+        const nextRetryAt = config.retryEnabled
+          ? new Date(Date.now() + config.retryBackoffSeconds * 1000).toISOString()
+          : undefined
+        const updated = await store.markDeliveryFailed(delivery.id, message, nextRetryAt)
+
+        return {
+          status: config.retryEnabled ? 'retry_scheduled' as const : 'failed' as const,
+          chatId: targetChatId,
+          deliveryId: delivery.id,
+          reason: message,
+          nextRetryAt: updated?.nextRetryAt,
+        }
+      }
+    },
+
+    async retryFailedDeliveries(limit = 10) {
+      if (!config.enabled)
+        return { status: 'disabled' as const, processed: 0, sent: 0, failed: 0 }
+
+      if (!config.retryEnabled)
+        return { status: 'retry_disabled' as const, processed: 0, sent: 0, failed: 0 }
+
+      if (!config.botToken)
+        return { status: 'misconfigured' as const, processed: 0, sent: 0, failed: 0 }
+
+      const nowIso = new Date().toISOString()
+      const candidates = await store.listRetryCandidates(nowIso, limit)
+      let sent = 0
+      let failed = 0
+
+      for (const delivery of candidates) {
+        try {
+          await sendTextMessage(config.botToken, delivery.chatId, delivery.text)
+
+          const shouldSendVoice = Boolean(config.ttsEnabled && delivery.voiceUrl)
+          if (shouldSendVoice)
+            await sendVoiceMessage(config.botToken, delivery.chatId, delivery.voiceUrl!, delivery.text)
+
+          await store.markDeliverySent(delivery.id, shouldSendVoice, 'retry_sent')
+          sent += 1
+        }
+        catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown telegram retry error.'
+          const nextRetryAt = new Date(Date.now() + config.retryBackoffSeconds * 1000).toISOString()
+          await store.markDeliveryFailed(delivery.id, message, nextRetryAt)
+          failed += 1
+        }
+      }
 
       return {
-        status: 'sent' as const,
-        chatId: targetChatId,
-        ttsSent: Boolean(config.ttsEnabled && input.voiceUrl),
+        status: 'ok' as const,
+        processed: candidates.length,
+        sent,
+        failed,
       }
     },
 
     async getState() {
       return store.getState()
+    },
+
+    async listRecentDeliveries(limit = 20) {
+      return store.listRecentDeliveries(limit)
     },
   }
 }
