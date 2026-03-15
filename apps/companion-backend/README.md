@@ -2,13 +2,19 @@
 
 ## What this app does
 
-`@proj-airi/companion-backend` is the fork-specific backend foundation for AIRI's client/server split. It provides:
+`@proj-airi/companion-backend` is the fork-specific backend foundation for AIRI's client/server split.
+
+M1 provided:
 
 - health endpoints for service monitoring
 - initial device-token authentication for trusted local clients
 - session issuance endpoint for AIRI clients
 
-This app is intentionally small and additive for M1, so later milestones can layer persistence, memory, integrations, reminders, and Telegram messaging without invasive rewrites.
+M2 adds:
+
+- persistent session and message history stored on disk
+- memory abstraction with summary compaction
+- deterministic session rollover when message threshold is reached
 
 ## How to use it
 
@@ -34,11 +40,27 @@ curl -X POST http://localhost:3100/api/session/create \
   -d '{"clientId":"desktop-main","clientType":"desktop"}'
 ```
 
+5. Add chat message to a session:
+
+```bash
+curl -X POST http://localhost:3100/api/chats/<SESSION_ID>/messages \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"user","content":"Remember that I prefer short reminders."}'
+```
+
+6. Inspect session history and recent memories:
+
+```bash
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/chats/<SESSION_ID>
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/memory/recent
+```
+
 ## When to use it
 
 - when running AIRI clients against a self-hosted central backend
-- when validating the M1 backend foundation milestone
-- when testing auth/session boundaries before persistence is added
+- when validating M1/M2 backend foundation milestones
+- when testing auth/session, persistence, and memory boundaries before integrations are added
 
 ## When not to use it
 

@@ -149,8 +149,8 @@ Notes:
 
 
 ## Milestone status
-- Current active milestone: **M1 — backend foundation**.
-- M1 implementation focus: standalone companion backend scaffold, device-token auth bootstrap, and health/session endpoints.
+- Current active milestone: **M2 — persistence + memory**.
+- M2 implementation focus: persistent session/message storage, summary-based memory compaction, and deterministic session rollover.
 
 ## 5) MVP scope (must-have)
 - Separate backend service skeleton with documented env/config.
