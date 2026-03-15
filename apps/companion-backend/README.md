@@ -23,6 +23,12 @@ M4 adds:
 - observable reminder delivery attempt logs with retry metadata
 - Jellyfin media awareness polling with configurable interval/chance, user filtering, and same-media suppression
 
+M5 adds:
+
+- Telegram inbound polling path that persists messages into a configured chat session
+- Telegram outbound send path for spontaneous/proactive assistant delivery
+- optional Telegram voice attachment send path when enabled
+
 ## How to use it
 
 1. Copy `.env.example` to `.env` and set `DEVICE_TOKENS`.
@@ -97,11 +103,26 @@ curl -X POST http://localhost:3100/api/jellyfin-awareness/tick \
 
 When configured, the runner also ticks automatically every `JELLYFIN_AWARENESS_INTERVAL_SECONDS`.
 
+
+10. Test Telegram integration routes (manual poll + outbound send):
+
+```bash
+curl -X POST http://localhost:3100/api/telegram/poll \
+  -H 'Authorization: Bearer desktop-dev-token'
+
+curl -X POST http://localhost:3100/api/telegram/send \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Hello from companion backend"}'
+
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/telegram/state
+```
+
 ## When to use it
 
 - when running AIRI clients against a self-hosted central backend
-- when validating M1-M4 backend foundation milestones
-- when testing auth/session, persistence, memory, integration permissions, and reminder delivery flow
+- when validating M1-M5 backend foundation milestones
+- when testing auth/session, persistence, memory, integration permissions, reminder delivery flow, and Telegram channel delivery flow
 
 ## When not to use it
 

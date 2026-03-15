@@ -149,8 +149,8 @@ Notes:
 
 
 ## Milestone status
-- Current active milestone: **M4 — reminders + proactive delivery**.
-- M4 implementation focus: reminder scheduling routes, due-processing runtime path, delivery observability with retries, and Jellyfin media-awareness polling hooks.
+- Current active milestone: **M5 — messaging channels (Telegram)**.
+- M5 implementation focus: Telegram send/receive path, configurable polling, and optional voice attachment delivery.
 
 ## 5) MVP scope (must-have)
 - Separate backend service skeleton with documented env/config.

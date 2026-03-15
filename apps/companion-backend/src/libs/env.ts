@@ -12,6 +12,14 @@ const RawEnvSchema = object({
   DATA_PATH_MEMORY: optional(string(), './.data/memory.json'),
   DATA_PATH_REMINDERS: optional(string(), './.data/reminders.json'),
 
+  DATA_PATH_TELEGRAM: optional(string(), './.data/telegram.json'),
+
+  TELEGRAM_ENABLED: optional(string(), 'false'),
+  TELEGRAM_BOT_TOKEN: optional(string(), ''),
+  TELEGRAM_CHAT_ID: optional(string(), ''),
+  TELEGRAM_INBOUND_SESSION_ID: optional(string(), ''),
+  TELEGRAM_POLL_INTERVAL_SECONDS: optional(string(), '30'),
+  TELEGRAM_TTS_ENABLED: optional(string(), 'false'),
   JELLYFIN_AWARENESS_ENABLED: optional(string(), 'false'),
   JELLYFIN_BASE_URL: optional(string(), ''),
   JELLYFIN_API_KEY: optional(string(), ''),
@@ -36,6 +44,15 @@ export interface Env {
   DATA_PATH_CHATS: string
   DATA_PATH_MEMORY: string
   DATA_PATH_REMINDERS: string
+
+  DATA_PATH_TELEGRAM: string
+
+  TELEGRAM_ENABLED: boolean
+  TELEGRAM_BOT_TOKEN: string
+  TELEGRAM_CHAT_ID: string
+  TELEGRAM_INBOUND_SESSION_ID: string
+  TELEGRAM_POLL_INTERVAL_SECONDS: number
+  TELEGRAM_TTS_ENABLED: boolean
 
   JELLYFIN_AWARENESS_ENABLED: boolean
   JELLYFIN_BASE_URL: string
@@ -66,6 +83,13 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   if (!Number.isFinite(sessionMaxMessages) || sessionMaxMessages <= 0)
     throw new Error('SESSION_MAX_MESSAGES must be a positive integer')
 
+  const telegramPollIntervalSeconds = Number.parseInt(raw.TELEGRAM_POLL_INTERVAL_SECONDS, 10)
+  if (!Number.isFinite(telegramPollIntervalSeconds) || telegramPollIntervalSeconds <= 0)
+    throw new Error('TELEGRAM_POLL_INTERVAL_SECONDS must be a positive integer')
+
+  const telegramEnabled = raw.TELEGRAM_ENABLED === 'true'
+  const telegramTtsEnabled = raw.TELEGRAM_TTS_ENABLED === 'true'
+
   const jellyfinIntervalSeconds = Number.parseInt(raw.JELLYFIN_AWARENESS_INTERVAL_SECONDS, 10)
   const jellyfinTriggerChance = Number.parseFloat(raw.JELLYFIN_AWARENESS_TRIGGER_CHANCE)
 
@@ -85,6 +109,15 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     DATA_PATH_CHATS: raw.DATA_PATH_CHATS,
     DATA_PATH_MEMORY: raw.DATA_PATH_MEMORY,
     DATA_PATH_REMINDERS: raw.DATA_PATH_REMINDERS,
+
+    DATA_PATH_TELEGRAM: raw.DATA_PATH_TELEGRAM,
+
+    TELEGRAM_ENABLED: telegramEnabled,
+    TELEGRAM_BOT_TOKEN: raw.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: raw.TELEGRAM_CHAT_ID,
+    TELEGRAM_INBOUND_SESSION_ID: raw.TELEGRAM_INBOUND_SESSION_ID,
+    TELEGRAM_POLL_INTERVAL_SECONDS: telegramPollIntervalSeconds,
+    TELEGRAM_TTS_ENABLED: telegramTtsEnabled,
 
     JELLYFIN_AWARENESS_ENABLED: jellyfinAwarenessEnabled,
     JELLYFIN_BASE_URL: raw.JELLYFIN_BASE_URL,
