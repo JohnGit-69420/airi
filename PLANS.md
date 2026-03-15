@@ -149,8 +149,8 @@ Notes:
 
 
 ## Milestone status
-- Current active milestone: **M2 — persistence + memory**.
-- M2 implementation focus: persistent session/message storage, summary-based memory compaction, and deterministic session rollover.
+- Current active milestone: **M3 — integrations + permissions**.
+- M3 implementation focus: integration registry, scope-based permission checks, and a first read-only integration path.
 
 ## 5) MVP scope (must-have)
 - Separate backend service skeleton with documented env/config.

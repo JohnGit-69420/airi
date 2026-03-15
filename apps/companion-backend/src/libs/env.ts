@@ -7,6 +7,7 @@ import { minLength, object, optional, parse, pipe, string } from 'valibot'
 const RawEnvSchema = object({
   PORT: optional(string(), '3100'),
   DEVICE_TOKENS: pipe(string(), minLength(1, 'DEVICE_TOKENS must include at least one token')),
+  DEVICE_TOKEN_SCOPES: optional(string(), 'desktop-dev-token:integrations:read|integrations:invoke:system-info'),
   DATA_PATH_CHATS: optional(string(), './.data/chats.json'),
   DATA_PATH_MEMORY: optional(string(), './.data/memory.json'),
   SESSION_MAX_MESSAGES: optional(string(), '20'),
@@ -17,6 +18,7 @@ type RawEnv = InferOutput<typeof RawEnvSchema>
 export interface Env {
   PORT: number
   DEVICE_TOKENS: string
+  DEVICE_TOKEN_SCOPES: string
   DATA_PATH_CHATS: string
   DATA_PATH_MEMORY: string
   SESSION_MAX_MESSAGES: number
@@ -39,6 +41,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   return {
     PORT: port,
     DEVICE_TOKENS: raw.DEVICE_TOKENS,
+    DEVICE_TOKEN_SCOPES: raw.DEVICE_TOKEN_SCOPES,
     DATA_PATH_CHATS: raw.DATA_PATH_CHATS,
     DATA_PATH_MEMORY: raw.DATA_PATH_MEMORY,
     SESSION_MAX_MESSAGES: sessionMaxMessages,

@@ -56,6 +56,13 @@ curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/chat
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/memory/recent
 ```
 
+7. List available integrations and invoke the sample read-only integration:
+
+```bash
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/integrations
+curl -X POST -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/integrations/system-info/invoke
+```
+
 ## When to use it
 
 - when running AIRI clients against a self-hosted central backend
