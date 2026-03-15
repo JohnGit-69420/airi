@@ -7,6 +7,7 @@ export interface ChatSessionMeta {
   title?: string
   createdAt: number
   updatedAt: number
+  companionSessionId?: string
 }
 
 export interface ChatSessionRecord {

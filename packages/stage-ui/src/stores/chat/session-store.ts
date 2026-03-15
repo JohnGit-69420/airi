@@ -6,6 +6,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 import { client } from '../../composables/api'
+import { appendCompanionMessage, createCompanionSession, getCompanionSessionDetails, isCompanionSyncEnabled } from '../../composables/companion-api'
 import { useLocalFirstRequest } from '../../composables/use-local-first'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
@@ -30,6 +31,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   let persistQueue = Promise.resolve()
   let syncQueue = Promise.resolve()
   const loadedSessions = new Set<string>()
+  const companionSyncedCounts = ref<Record<string, number>>({})
   const loadingSessions = new Map<string, Promise<void>>()
 
   // I know this nu uh, better than loading all language on rehypeShiki
@@ -170,7 +172,101 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       catch (error) {
         console.warn('Failed to sync chat session', error)
       }
+
+      try {
+        await syncSessionToCompanion(sessionId)
+      }
+      catch (error) {
+        console.warn('Failed to sync companion chat session', error)
+      }
     })
+  }
+
+
+  function resolveCompanionClientType(): 'desktop' | 'web' | 'mobile' | 'other' {
+    if (typeof navigator === 'undefined')
+      return 'other'
+
+    if (navigator.userAgent.includes('Electron'))
+      return 'desktop'
+
+    return 'web'
+  }
+
+  async function ensureCompanionSession(sessionId: string) {
+    const meta = sessionMetas.value[sessionId]
+    if (!meta)
+      return null
+
+    if (meta.companionSessionId)
+      return meta.companionSessionId
+
+    const companionSessionId = await createCompanionSession({
+      clientId: `${meta.userId}:${meta.characterId}`,
+      clientType: resolveCompanionClientType(),
+    })
+
+    const nextMeta = {
+      ...meta,
+      companionSessionId,
+    }
+
+    sessionMetas.value[sessionId] = nextMeta
+    const characterIndex = index.value?.characters[meta.characterId]
+    if (characterIndex)
+      characterIndex.sessions[sessionId] = nextMeta
+
+    const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
+    const record: ChatSessionRecord = {
+      meta: nextMeta,
+      messages,
+    }
+
+    await enqueuePersist(() => chatSessionsRepo.saveSession(sessionId, record))
+    await persistIndex()
+    return companionSessionId
+  }
+
+  async function syncSessionToCompanion(sessionId: string) {
+    if (!isCompanionSyncEnabled())
+      return
+
+    const messages = ensureSessionMessageIds(sessionId)
+    if (messages.length === 0)
+      return
+
+    const companionSessionId = await ensureCompanionSession(sessionId)
+    if (!companionSessionId)
+      return
+
+    let syncedCount = companionSyncedCounts.value[sessionId] ?? 0
+
+    if (syncedCount === 0) {
+      const details = await getCompanionSessionDetails(companionSessionId)
+      syncedCount = details.messages.length
+      companionSyncedCounts.value[sessionId] = syncedCount
+    }
+
+    if (syncedCount >= messages.length)
+      return
+
+    for (const message of messages.slice(syncedCount)) {
+      const content = extractMessageContent(message).trim()
+      if (!content)
+        continue
+
+      if (message.role !== 'system' && message.role !== 'user' && message.role !== 'assistant')
+        continue
+
+      await appendCompanionMessage({
+        sessionId: companionSessionId,
+        role: message.role,
+        content,
+      })
+
+      syncedCount += 1
+      companionSyncedCounts.value[sessionId] = syncedCount
+    }
   }
 
   function generateInitialMessageFromPrompt(prompt: string) {
@@ -431,6 +527,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
+    companionSyncedCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
@@ -515,6 +612,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
+    companionSyncedCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
