@@ -8,9 +8,12 @@ import { createChatRuntime } from './modules/chat/service'
 import { createChatStore } from './modules/chat/store'
 import { createIntegrationRegistry } from './modules/integrations/registry'
 import { createMemoryStore } from './modules/memory/store'
+import { createReminderRuntime } from './modules/reminders/service'
+import { createReminderStore } from './modules/reminders/store'
 import { createChatRoutes } from './routes/chats'
 import { createIntegrationRoutes } from './routes/integrations'
 import { createMemoryRoutes } from './routes/memory'
+import { createReminderRoutes } from './routes/reminders'
 import { createSessionRoutes } from './routes/session'
 
 interface AppDeps {
@@ -18,13 +21,14 @@ interface AppDeps {
   deviceTokenScopesRaw: string
   chatDataPath: string
   memoryDataPath: string
+  remindersDataPath: string
   sessionMaxMessages: number
 }
 
 /**
  * Builds the companion backend app with health and authenticated API routes.
  */
-function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryDataPath, sessionMaxMessages }: AppDeps) {
+function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryDataPath, remindersDataPath, sessionMaxMessages }: AppDeps) {
   const app = new Hono()
   const logger = useLogger('companion-backend').useGlobalConfig()
 
@@ -36,6 +40,8 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   const memoryStore = createMemoryStore(memoryDataPath)
   const chatRuntime = createChatRuntime(chatStore, memoryStore, { sessionMaxMessages })
   const integrationRegistry = createIntegrationRegistry()
+  const reminderStore = createReminderStore(remindersDataPath)
+  const reminderRuntime = createReminderRuntime(reminderStore, chatRuntime)
 
   app.get('/health', c => c.json({ status: 'ok' }))
 
@@ -44,6 +50,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   app.route('/api/chats', createChatRoutes(chatRuntime))
   app.route('/api/memory', createMemoryRoutes(chatRuntime))
   app.route('/api/integrations', createIntegrationRoutes(integrationRegistry))
+  app.route('/api/reminders', createReminderRoutes(reminderRuntime))
 
   logger.withFields({
     configuredDeviceTokens: deviceTokens.size,
@@ -52,6 +59,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     sessionMaxMessages,
     chatDataPath,
     memoryDataPath,
+    remindersDataPath,
   }).log('Companion backend app initialized')
 
   return app
@@ -68,6 +76,7 @@ function start() {
     deviceTokenScopesRaw: parsedEnv.DEVICE_TOKEN_SCOPES,
     chatDataPath: parsedEnv.DATA_PATH_CHATS,
     memoryDataPath: parsedEnv.DATA_PATH_MEMORY,
+    remindersDataPath: parsedEnv.DATA_PATH_REMINDERS,
     sessionMaxMessages: parsedEnv.SESSION_MAX_MESSAGES,
   })
 

@@ -10,6 +10,7 @@ const RawEnvSchema = object({
   DEVICE_TOKEN_SCOPES: optional(string(), 'desktop-dev-token:integrations:read|integrations:invoke:system-info'),
   DATA_PATH_CHATS: optional(string(), './.data/chats.json'),
   DATA_PATH_MEMORY: optional(string(), './.data/memory.json'),
+  DATA_PATH_REMINDERS: optional(string(), './.data/reminders.json'),
   SESSION_MAX_MESSAGES: optional(string(), '20'),
 })
 
@@ -21,6 +22,7 @@ export interface Env {
   DEVICE_TOKEN_SCOPES: string
   DATA_PATH_CHATS: string
   DATA_PATH_MEMORY: string
+  DATA_PATH_REMINDERS: string
   SESSION_MAX_MESSAGES: number
 }
 
@@ -44,6 +46,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     DEVICE_TOKEN_SCOPES: raw.DEVICE_TOKEN_SCOPES,
     DATA_PATH_CHATS: raw.DATA_PATH_CHATS,
     DATA_PATH_MEMORY: raw.DATA_PATH_MEMORY,
+    DATA_PATH_REMINDERS: raw.DATA_PATH_REMINDERS,
     SESSION_MAX_MESSAGES: sessionMaxMessages,
   }
 }

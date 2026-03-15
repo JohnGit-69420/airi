@@ -16,6 +16,12 @@ M2 adds:
 - memory abstraction with summary compaction
 - deterministic session rollover when message threshold is reached
 
+M4 adds:
+
+- reminder scheduling endpoint with disk persistence
+- due reminder processing endpoint for proactive delivery into chat sessions
+- observable reminder delivery attempt logs with retry metadata
+
 ## How to use it
 
 1. Copy `.env.example` to `.env` and set `DEVICE_TOKENS`.
@@ -63,13 +69,30 @@ curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/inte
 curl -X POST -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/integrations/system-info/invoke
 ```
 
+
+8. Schedule a reminder and process due reminders:
+
+```bash
+curl -X POST http://localhost:3100/api/reminders \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"<SESSION_ID>","message":"Take a short break","dueAt":"2026-01-01T00:00:00.000Z"}'
+
+curl -X POST http://localhost:3100/api/reminders/process-due \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"limit":20}'
+
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/reminders/deliveries/recent
+```
+
 ## When to use it
 
 - when running AIRI clients against a self-hosted central backend
-- when validating M1/M2 backend foundation milestones
-- when testing auth/session, persistence, and memory boundaries before integrations are added
+- when validating M1-M4 backend foundation milestones
+- when testing auth/session, persistence, memory, integration permissions, and reminder delivery flow
 
 ## When not to use it
 
 - not for production-grade auth/account management yet
-- not as a fully featured integration/reminder/messaging backend (those are later milestones)
+- not as a fully featured external messaging backend (Telegram and channel adapters are later milestones)
