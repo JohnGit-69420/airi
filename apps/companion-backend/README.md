@@ -21,6 +21,7 @@ M4 adds:
 - reminder scheduling endpoint with disk persistence
 - due reminder processing endpoint for proactive delivery into chat sessions
 - observable reminder delivery attempt logs with retry metadata
+- Jellyfin media awareness polling with configurable interval/chance, user filtering, and same-media suppression
 
 ## How to use it
 
@@ -85,6 +86,16 @@ curl -X POST http://localhost:3100/api/reminders/process-due \
 
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/reminders/deliveries/recent
 ```
+
+
+9. Trigger Jellyfin awareness manually (useful for testing poll logic without waiting for timer):
+
+```bash
+curl -X POST http://localhost:3100/api/jellyfin-awareness/tick \
+  -H 'Authorization: Bearer desktop-dev-token'
+```
+
+When configured, the runner also ticks automatically every `JELLYFIN_AWARENESS_INTERVAL_SECONDS`.
 
 ## When to use it
 

@@ -150,7 +150,7 @@ Notes:
 
 ## Milestone status
 - Current active milestone: **M4 — reminders + proactive delivery**.
-- M4 implementation focus: reminder scheduling routes, due-processing runtime path, and delivery observability with retries.
+- M4 implementation focus: reminder scheduling routes, due-processing runtime path, delivery observability with retries, and Jellyfin media-awareness polling hooks.
 
 ## 5) MVP scope (must-have)
 - Separate backend service skeleton with documented env/config.

@@ -1,3 +1,5 @@
+import type { Env } from './libs/env'
+
 import { initLogger, LoggerFormat, LoggerLevel, useLogger } from '@guiiai/logg'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
@@ -6,12 +8,14 @@ import { parsedEnv } from './libs/env'
 import { createDeviceTokenAuthMiddleware, parseConfiguredDeviceTokens, parseDeviceTokenScopes } from './modules/auth/device-token'
 import { createChatRuntime } from './modules/chat/service'
 import { createChatStore } from './modules/chat/store'
+import { startJellyfinAwarenessRunner } from './modules/integrations/jellyfin-awareness-runner'
 import { createIntegrationRegistry } from './modules/integrations/registry'
 import { createMemoryStore } from './modules/memory/store'
 import { createReminderRuntime } from './modules/reminders/service'
 import { createReminderStore } from './modules/reminders/store'
 import { createChatRoutes } from './routes/chats'
 import { createIntegrationRoutes } from './routes/integrations'
+import { createJellyfinAwarenessRoutes } from './routes/jellyfin-awareness'
 import { createMemoryRoutes } from './routes/memory'
 import { createReminderRoutes } from './routes/reminders'
 import { createSessionRoutes } from './routes/session'
@@ -23,12 +27,13 @@ interface AppDeps {
   memoryDataPath: string
   remindersDataPath: string
   sessionMaxMessages: number
+  env: Env
 }
 
 /**
  * Builds the companion backend app with health and authenticated API routes.
  */
-function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryDataPath, remindersDataPath, sessionMaxMessages }: AppDeps) {
+function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryDataPath, remindersDataPath, sessionMaxMessages, env }: AppDeps) {
   const app = new Hono()
   const logger = useLogger('companion-backend').useGlobalConfig()
 
@@ -42,6 +47,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   const integrationRegistry = createIntegrationRegistry()
   const reminderStore = createReminderStore(remindersDataPath)
   const reminderRuntime = createReminderRuntime(reminderStore, chatRuntime)
+  const jellyfinAwarenessRunner = startJellyfinAwarenessRunner(env, chatRuntime)
 
   app.get('/health', c => c.json({ status: 'ok' }))
 
@@ -51,6 +57,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   app.route('/api/memory', createMemoryRoutes(chatRuntime))
   app.route('/api/integrations', createIntegrationRoutes(integrationRegistry))
   app.route('/api/reminders', createReminderRoutes(reminderRuntime))
+  app.route('/api/jellyfin-awareness', createJellyfinAwarenessRoutes(jellyfinAwarenessRunner))
 
   logger.withFields({
     configuredDeviceTokens: deviceTokens.size,
@@ -60,6 +67,9 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     chatDataPath,
     memoryDataPath,
     remindersDataPath,
+    jellyfinAwarenessEnabled: env.JELLYFIN_AWARENESS_ENABLED,
+    jellyfinAwarenessIntervalSeconds: env.JELLYFIN_AWARENESS_INTERVAL_SECONDS,
+    jellyfinAwarenessTriggerChance: env.JELLYFIN_AWARENESS_TRIGGER_CHANCE,
   }).log('Companion backend app initialized')
 
   return app
@@ -78,6 +88,7 @@ function start() {
     memoryDataPath: parsedEnv.DATA_PATH_MEMORY,
     remindersDataPath: parsedEnv.DATA_PATH_REMINDERS,
     sessionMaxMessages: parsedEnv.SESSION_MAX_MESSAGES,
+    env: parsedEnv,
   })
 
   serve({ fetch: app.fetch, port: parsedEnv.PORT })
