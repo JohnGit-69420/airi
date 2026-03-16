@@ -113,6 +113,47 @@ If your mem0 deployment rejects auth with 401, set `MEM0_AUTH_SCHEME` to one of:
 
 If mem0 returns `One of the filters: app_id, user_id, agent_id, run_id is required!`, set `MEM0_APP_ID` and ensure calls include a non-empty `sessionId` so `user_id` is sent.
 
+
+#### mem0 testing process (smoke test)
+
+1. Create `.env` from `.env.example`, set `MEMORY_PROVIDER=mem0`, and fill `MEM0_BASE_URL`, `MEM0_API_KEY`, `MEM0_AUTH_SCHEME`, and `MEM0_APP_ID` (if required by your deployment).
+2. Start backend: `pnpm -F @proj-airi/companion-backend dev`.
+3. Create a session and keep the returned `sessionId`:
+
+```bash
+SESSION_ID=$(curl -s -X POST http://localhost:3100/api/session/create \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"desktop-main","clientType":"desktop"}' | jq -r '.sessionId')
+```
+
+4. Seed a memory via API:
+
+```bash
+curl -X POST http://localhost:3100/api/memory/remember \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d "{\"sessionId\":\"$SESSION_ID\",\"role\":\"user\",\"content\":\"My favorite color is red\"}"
+```
+
+5. Verify retrieval paths:
+
+```bash
+curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/memory/recent
+
+curl -X POST http://localhost:3100/api/memory/search \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d "{\"query\":\"favorite color\",\"sessionId\":\"$SESSION_ID\",\"limit\":3}"
+```
+
+Expected outcome:
+- `remember` returns a memory entry id.
+- `recent` includes the created summary/content.
+- `search` returns at least one relevant hit for `favorite color`.
+
+If failures occur, inspect the JSON error body (`memory_remember_failed` / `memory_search_failed`) and adjust `MEM0_AUTH_SCHEME` or `MEM0_APP_ID` accordingly.
+
 7. List available integrations and invoke the sample read-only integration:
 
 ```bash
