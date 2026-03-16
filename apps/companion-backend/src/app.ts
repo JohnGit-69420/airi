@@ -51,11 +51,12 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   const chatStore = createChatStore(chatDataPath)
   const memoryStore = env.MEMORY_PROVIDER === 'mem0'
     ? createMem0MemoryStore({
-        baseUrl: env.MEM0_BASE_URL,
-        apiKey: env.MEM0_API_KEY,
-        orgId: env.MEM0_ORG_ID,
-        projectId: env.MEM0_PROJECT_ID,
-      })
+      baseUrl: env.MEM0_BASE_URL,
+      apiKey: env.MEM0_API_KEY,
+      authScheme: env.MEM0_AUTH_SCHEME,
+      orgId: env.MEM0_ORG_ID,
+      projectId: env.MEM0_PROJECT_ID,
+    })
     : createMemoryStore(memoryDataPath)
   const chatRuntime = createChatRuntime(chatStore, memoryStore, { sessionMaxMessages })
   const integrationRegistry = createIntegrationRegistry()
@@ -102,6 +103,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     chatDataPath,
     memoryDataPath,
     memoryProvider: env.MEMORY_PROVIDER,
+    mem0AuthScheme: env.MEM0_AUTH_SCHEME,
     remindersDataPath,
     telegramDataPath,
     telegramEnabled: env.TELEGRAM_ENABLED,

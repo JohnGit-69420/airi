@@ -83,6 +83,8 @@ curl -X POST http://localhost:3100/api/memory/remember \
 
 Set `MEMORY_PROVIDER=mem0` and configure `MEM0_BASE_URL` + `MEM0_API_KEY` (optionally `MEM0_ORG_ID` and `MEM0_PROJECT_ID`) to use mem0-backed compaction/retrieval instead of local JSON memory.
 
+If your mem0 deployment rejects auth with 401, set `MEM0_AUTH_SCHEME` to one of: `bearer`, `token`, or `api-key`.
+
 7. List available integrations and invoke the sample read-only integration:
 
 ```bash

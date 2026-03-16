@@ -17,6 +17,7 @@ interface Mem0SearchResult {
 interface Mem0ClientConfig {
   baseUrl: string
   apiKey: string
+  authScheme?: 'bearer' | 'token' | 'api-key'
   orgId?: string
   projectId?: string
 }
@@ -24,7 +25,16 @@ interface Mem0ClientConfig {
 function buildMem0Headers(config: Mem0ClientConfig) {
   const headers = new Headers()
   headers.set('Content-Type', 'application/json')
-  headers.set('Authorization', `Bearer ${config.apiKey}`)
+
+  if (config.authScheme === 'api-key') {
+    headers.set('x-api-key', config.apiKey)
+  }
+  else {
+    const authPrefix = config.authScheme === 'token' ? 'Token' : 'Bearer'
+    headers.set('Authorization', `${authPrefix} ${config.apiKey}`)
+    // NOTICE: Some mem0 deployments validate x-api-key rather than Authorization.
+    headers.set('x-api-key', config.apiKey)
+  }
 
   if (config.orgId)
     headers.set('x-mem0-org-id', config.orgId)
@@ -33,6 +43,14 @@ function buildMem0Headers(config: Mem0ClientConfig) {
     headers.set('x-mem0-project-id', config.projectId)
 
   return headers
+}
+
+async function assertMem0Ok(response: Response, operation: string) {
+  if (response.ok)
+    return
+
+  const body = await response.text()
+  throw new Error(`Mem0 ${operation} failed (${response.status}): ${body.slice(0, 300)}`)
 }
 
 function summarizeMessages(messages: ChatMessage[]) {
@@ -72,8 +90,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         body: JSON.stringify(payload),
       })
 
-      if (!response.ok)
-        throw new Error(`Mem0 compact failed (${response.status})`)
+      await assertMem0Ok(response, 'compact')
 
       const raw = await response.json() as { id?: string, created_at?: string }
       return {
@@ -91,8 +108,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         body: JSON.stringify({ query: 'recent companion memories', limit }),
       })
 
-      if (!response.ok)
-        throw new Error(`Mem0 search failed (${response.status})`)
+      await assertMem0Ok(response, 'search')
 
       const raw = await response.json() as { memories?: Mem0SearchResult[] }
       const memories = Array.isArray(raw.memories) ? raw.memories : []
@@ -114,8 +130,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         body: JSON.stringify({ query, limit, user_id: sessionId ? `session:${sessionId}` : undefined }),
       })
 
-      if (!response.ok)
-        throw new Error(`Mem0 search failed (${response.status})`)
+      await assertMem0Ok(response, 'search')
 
       const raw = await response.json() as { memories?: Mem0SearchResult[] }
       const memories = Array.isArray(raw.memories) ? raw.memories : []
@@ -145,8 +160,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         }),
       })
 
-      if (!response.ok)
-        throw new Error(`Mem0 remember failed (${response.status})`)
+      await assertMem0Ok(response, 'remember')
 
       const raw = await response.json() as { id?: string, created_at?: string }
       return {

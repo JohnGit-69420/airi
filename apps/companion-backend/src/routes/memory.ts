@@ -25,17 +25,27 @@ export function createMemoryRoutes(chatRuntime: ReturnType<typeof createChatRunt
       return c.json({ memories })
     })
     .post('/search', async (c) => {
-      const body = parse(SearchMemoriesSchema, await c.req.json())
-      const memories = await chatRuntime.searchMemories({
-        query: body.query,
-        limit: body.limit,
-        sessionId: body.sessionId,
-      })
-      return c.json({ memories })
+      try {
+        const body = parse(SearchMemoriesSchema, await c.req.json())
+        const memories = await chatRuntime.searchMemories({
+          query: body.query,
+          limit: body.limit,
+          sessionId: body.sessionId,
+        })
+        return c.json({ memories })
+      }
+      catch (error) {
+        return c.json({ error: 'memory_search_failed', message: String(error) }, 502)
+      }
     })
     .post('/remember', async (c) => {
-      const body = parse(RememberMessageSchema, await c.req.json())
-      const memory = await chatRuntime.rememberMessage(body)
-      return c.json({ memory, stored: Boolean(memory) })
+      try {
+        const body = parse(RememberMessageSchema, await c.req.json())
+        const memory = await chatRuntime.rememberMessage(body)
+        return c.json({ memory, stored: Boolean(memory) })
+      }
+      catch (error) {
+        return c.json({ error: 'memory_remember_failed', message: String(error) }, 502)
+      }
     })
 }

@@ -13,6 +13,7 @@ const RawEnvSchema = object({
   MEMORY_PROVIDER: optional(string(), 'local'),
   MEM0_BASE_URL: optional(string(), ''),
   MEM0_API_KEY: optional(string(), ''),
+  MEM0_AUTH_SCHEME: optional(string(), 'bearer'),
   MEM0_ORG_ID: optional(string(), ''),
   MEM0_PROJECT_ID: optional(string(), ''),
   DATA_PATH_REMINDERS: optional(string(), './.data/reminders.json'),
@@ -54,6 +55,7 @@ export interface Env {
   MEMORY_PROVIDER: 'local' | 'mem0'
   MEM0_BASE_URL: string
   MEM0_API_KEY: string
+  MEM0_AUTH_SCHEME: 'bearer' | 'token' | 'api-key'
   MEM0_ORG_ID: string
   MEM0_PROJECT_ID: string
   DATA_PATH_REMINDERS: string
@@ -100,6 +102,12 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     throw new Error('SESSION_MAX_MESSAGES must be a positive integer')
 
   const memoryProvider = raw.MEMORY_PROVIDER === 'mem0' ? 'mem0' : 'local'
+  const mem0AuthScheme: Env['MEM0_AUTH_SCHEME']
+    = raw.MEM0_AUTH_SCHEME === 'token'
+      ? 'token'
+      : raw.MEM0_AUTH_SCHEME === 'api-key'
+        ? 'api-key'
+        : 'bearer'
 
   const telegramPollIntervalSeconds = Number.parseInt(raw.TELEGRAM_POLL_INTERVAL_SECONDS, 10)
   if (!Number.isFinite(telegramPollIntervalSeconds) || telegramPollIntervalSeconds <= 0)
@@ -139,6 +147,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     MEMORY_PROVIDER: memoryProvider,
     MEM0_BASE_URL: raw.MEM0_BASE_URL,
     MEM0_API_KEY: raw.MEM0_API_KEY,
+    MEM0_AUTH_SCHEME: mem0AuthScheme,
     MEM0_ORG_ID: raw.MEM0_ORG_ID,
     MEM0_PROJECT_ID: raw.MEM0_PROJECT_ID,
     DATA_PATH_REMINDERS: raw.DATA_PATH_REMINDERS,
