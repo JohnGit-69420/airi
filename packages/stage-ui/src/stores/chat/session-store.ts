@@ -33,6 +33,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   const loadedSessions = new Set<string>()
   const companionSyncedCounts = ref<Record<string, number>>({})
   const loadingSessions = new Map<string, Promise<void>>()
+  let lifecycleSyncBound = false
 
   // I know this nu uh, better than loading all language on rehypeShiki
   const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
@@ -269,6 +270,48 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     }
   }
 
+
+  async function flushPersistAndSyncQueues() {
+    await persistQueue
+    await syncQueue
+  }
+
+  function getKnownSessionIds() {
+    return Array.from(new Set([
+      ...Object.keys(sessionMetas.value),
+      ...Object.keys(sessionMessages.value),
+    ]))
+  }
+
+  async function syncAllKnownSessions() {
+    const sessionIds = getKnownSessionIds()
+    for (const sessionId of sessionIds)
+      scheduleSync(sessionId)
+
+    await flushPersistAndSyncQueues()
+  }
+
+  function bindLifecycleSync() {
+    if (lifecycleSyncBound)
+      return
+
+    if (typeof window === 'undefined' || typeof document === 'undefined')
+      return
+
+    const flushOnLifecycle = () => {
+      void syncAllKnownSessions()
+    }
+
+    window.addEventListener('beforeunload', flushOnLifecycle)
+    window.addEventListener('pagehide', flushOnLifecycle)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden')
+        flushOnLifecycle()
+    })
+
+    lifecycleSyncBound = true
+  }
+
   function generateInitialMessageFromPrompt(prompt: string) {
     const content = codeBlockSystemPrompt + mathSyntaxSystemPrompt + prompt
 
@@ -447,6 +490,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     initializing.value = true
     initializePromise = (async () => {
       await ensureActiveSessionForCharacter()
+      bindLifecycleSync()
+      await syncAllKnownSessions()
       ready.value = true
     })()
 
