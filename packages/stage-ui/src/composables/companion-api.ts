@@ -9,6 +9,7 @@ interface CompanionSessionDetails {
     clientMessageId?: string
     role: 'system' | 'user' | 'assistant'
     content: string
+    createdAt: string
   }>
 }
 

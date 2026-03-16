@@ -89,6 +89,16 @@ export function createChatStore(dataPath: string) {
           return existing
       }
 
+      // NOTICE: Companion sync can occasionally retry the same payload without a stable
+      // clientMessageId (for example during transient reconnect windows). Guard against
+      // immediate duplicated writes by reusing an existing consecutive message when both
+      // role and content match exactly.
+      const latestForSession = database.messages
+        .filter(message => message.sessionId === input.sessionId)
+        .at(-1)
+      if (latestForSession && latestForSession.role === input.role && latestForSession.content === input.content)
+        return latestForSession
+
       const message: ChatMessage = {
         id: crypto.randomUUID(),
         clientMessageId: input.clientMessageId,

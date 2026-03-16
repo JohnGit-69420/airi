@@ -109,7 +109,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return `${role}\u001F${content}`
   }
 
-  async function mergeCompanionMessagesIntoSession(sessionId: string, remoteMessages: Array<{ clientMessageId?: string, role: 'system' | 'user' | 'assistant', content: string }>) {
+  async function mergeCompanionMessagesIntoSession(sessionId: string, remoteMessages: Array<{ clientMessageId?: string, role: 'system' | 'user' | 'assistant', content: string, createdAt: string }>) {
     if (remoteMessages.length === 0)
       return
 
@@ -150,14 +150,18 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         id,
         role: remoteMessage.role,
         content,
-        createdAt: Date.now(),
-      })
+        createdAt: Number.isFinite(Date.parse(remoteMessage.createdAt))
+          ? Date.parse(remoteMessage.createdAt)
+          : Date.now(),
+      } as ChatHistoryItem)
     }
 
     if (messagesToAppend.length === 0)
       return
 
-    sessionMessages.value[sessionId] = [...localMessages, ...messagesToAppend]
+    const nextMessages = [...localMessages, ...messagesToAppend]
+    nextMessages.sort((left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0))
+    sessionMessages.value[sessionId] = nextMessages
     await persistSession(sessionId)
   }
 
@@ -300,14 +304,12 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const details = await getCompanionSessionDetails(companionSessionId)
     await mergeCompanionMessagesIntoSession(sessionId, details.messages)
 
-    let syncedIds = companionSyncedMessageIds.value[sessionId]
-    if (!syncedIds) {
-      syncedIds = {}
-      for (const message of details.messages) {
-        if (message.clientMessageId)
-          syncedIds[message.clientMessageId] = true
-      }
-      companionSyncedMessageIds.value[sessionId] = syncedIds
+    const syncedIds: Record<string, true> = {
+      ...(companionSyncedMessageIds.value[sessionId] ?? {}),
+    }
+    for (const message of details.messages) {
+      if (message.clientMessageId)
+        syncedIds[message.clientMessageId] = true
     }
 
     let syncedKeyCounts = companionSyncedMessageKeyCounts.value[sessionId]
