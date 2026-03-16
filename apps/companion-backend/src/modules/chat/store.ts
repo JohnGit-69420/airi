@@ -5,6 +5,7 @@ export type ChatRole = 'system' | 'user' | 'assistant'
 
 export interface ChatMessage {
   id: string
+  clientMessageId?: string
   sessionId: string
   role: ChatRole
   content: string
@@ -76,14 +77,21 @@ export function createChatStore(dataPath: string) {
       return session
     },
 
-    async addMessage(input: { sessionId: string, role: ChatRole, content: string }): Promise<ChatMessage> {
+    async addMessage(input: { sessionId: string, role: ChatRole, content: string, clientMessageId?: string }): Promise<ChatMessage> {
       const database = await readDatabase(dataPath)
       const session = database.sessions.find(candidate => candidate.id === input.sessionId)
       if (!session)
         throw new Error(`Session not found: ${input.sessionId}`)
 
+      if (input.clientMessageId) {
+        const existing = database.messages.find(message => message.sessionId === input.sessionId && message.clientMessageId === input.clientMessageId)
+        if (existing)
+          return existing
+      }
+
       const message: ChatMessage = {
         id: crypto.randomUUID(),
+        clientMessageId: input.clientMessageId,
         sessionId: input.sessionId,
         role: input.role,
         content: input.content,

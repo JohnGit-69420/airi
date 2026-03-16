@@ -6,6 +6,7 @@ interface CompanionSessionDetails {
   session: CompanionSession
   messages: Array<{
     id: string
+    clientMessageId?: string
     role: 'system' | 'user' | 'assistant'
     content: string
   }>
@@ -69,9 +70,9 @@ export async function getCompanionSessionDetails(sessionId: string): Promise<Com
 /**
  * Appends a chat message to the companion session.
  */
-export async function appendCompanionMessage(input: { sessionId: string, role: 'system' | 'user' | 'assistant', content: string }) {
+export async function appendCompanionMessage(input: { sessionId: string, role: 'system' | 'user' | 'assistant', content: string, clientMessageId?: string }) {
   await companionFetch(`/api/chats/${input.sessionId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ role: input.role, content: input.content }),
+    body: JSON.stringify({ role: input.role, content: input.content, clientMessageId: input.clientMessageId }),
   })
 }

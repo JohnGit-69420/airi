@@ -1,11 +1,12 @@
 import type { createChatRuntime } from '../modules/chat/service'
 
 import { Hono } from 'hono'
-import { object, parse, picklist, string } from 'valibot'
+import { object, optional, parse, picklist, string } from 'valibot'
 
 const AddMessageSchema = object({
   role: picklist(['system', 'user', 'assistant']),
   content: string(),
+  clientMessageId: optional(string()),
 })
 
 /**
@@ -32,6 +33,7 @@ export function createChatRoutes(chatRuntime: ReturnType<typeof createChatRuntim
           sessionId,
           role: body.role,
           content: body.content,
+          clientMessageId: body.clientMessageId,
         })
 
         return c.json(result)

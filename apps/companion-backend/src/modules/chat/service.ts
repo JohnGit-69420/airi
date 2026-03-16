@@ -20,7 +20,7 @@ export function createChatRuntime(
       return chatStore.createSession(input)
     },
 
-    async addMessage(input: { sessionId: string, role: ChatRole, content: string }) {
+    async addMessage(input: { sessionId: string, role: ChatRole, content: string, clientMessageId?: string }) {
       const message = await chatStore.addMessage(input)
       const messages = await chatStore.getMessagesBySession(input.sessionId)
 
