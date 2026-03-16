@@ -3,6 +3,7 @@ import type { Env } from './libs/env'
 import { initLogger, LoggerFormat, LoggerLevel, useLogger } from '@guiiai/logg'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 
 import { parsedEnv } from './libs/env'
 import { createDeviceTokenAuthMiddleware, parseConfiguredDeviceTokens, parseDeviceTokenScopes } from './modules/auth/device-token'
@@ -69,6 +70,12 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   const jellyfinAwarenessRunner = startJellyfinAwarenessRunner(env, chatRuntime)
 
   app.get('/health', c => c.json({ status: 'ok' }))
+
+  app.use('/api/*', cors({
+    origin: '*',
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Authorization', 'Content-Type'],
+  }))
 
   app.use('/api/*', requireDeviceToken)
   app.route('/api/session', createSessionRoutes(chatRuntime))

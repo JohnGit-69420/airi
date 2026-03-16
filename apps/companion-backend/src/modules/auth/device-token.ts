@@ -58,6 +58,11 @@ export function parseDeviceTokenScopes(input: string): DeviceTokenScopeMap {
  */
 export function createDeviceTokenAuthMiddleware(allowedTokens: Set<string>, scopesByToken: DeviceTokenScopeMap) {
   return async (c: Context, next: Next) => {
+    // NOTICE: Browser CORS preflight OPTIONS requests do not carry Authorization headers.
+    // Allow them to pass so authenticated POST/GET requests can be evaluated normally.
+    if (c.req.method === 'OPTIONS')
+      return next()
+
     const token = extractBearerToken(c.req.header('Authorization'))
 
     if (!token || !allowedTokens.has(token)) {
