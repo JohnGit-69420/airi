@@ -31,7 +31,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   let persistQueue = Promise.resolve()
   let syncQueue = Promise.resolve()
   const loadedSessions = new Set<string>()
-  const companionSyncedCounts = ref<Record<string, number>>({})
+  const companionSyncedMessageKeyCounts = ref<Record<string, Record<string, number>>>({})
   const loadingSessions = new Map<string, Promise<void>>()
   let lifecycleSyncBound = false
 
@@ -240,23 +240,37 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!companionSessionId)
       return
 
-    let syncedCount = companionSyncedCounts.value[sessionId] ?? 0
+    const buildMessageKey = (role: 'system' | 'user' | 'assistant', content: string) => `${role}\u001F${content}`
 
-    if (syncedCount === 0) {
+    let syncedKeyCounts = companionSyncedMessageKeyCounts.value[sessionId]
+    if (!syncedKeyCounts) {
+      syncedKeyCounts = {}
       const details = await getCompanionSessionDetails(companionSessionId)
-      syncedCount = details.messages.length
-      companionSyncedCounts.value[sessionId] = syncedCount
+      for (const message of details.messages) {
+        const content = message.content.trim()
+        if (!content)
+          continue
+        const key = buildMessageKey(message.role, content)
+        syncedKeyCounts[key] = (syncedKeyCounts[key] ?? 0) + 1
+      }
+      companionSyncedMessageKeyCounts.value[sessionId] = syncedKeyCounts
     }
 
-    if (syncedCount >= messages.length)
-      return
+    const localSeenKeyCounts: Record<string, number> = {}
 
-    for (const message of messages.slice(syncedCount)) {
+    for (const message of messages) {
       const content = extractMessageContent(message).trim()
       if (!content)
         continue
 
       if (message.role !== 'system' && message.role !== 'user' && message.role !== 'assistant')
+        continue
+
+      const key = buildMessageKey(message.role, content)
+      localSeenKeyCounts[key] = (localSeenKeyCounts[key] ?? 0) + 1
+      const syncedCountForKey = syncedKeyCounts[key] ?? 0
+
+      if (localSeenKeyCounts[key] <= syncedCountForKey)
         continue
 
       await appendCompanionMessage({
@@ -265,9 +279,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         content,
       })
 
-      syncedCount += 1
-      companionSyncedCounts.value[sessionId] = syncedCount
+      syncedKeyCounts[key] = syncedCountForKey + 1
     }
+
+    companionSyncedMessageKeyCounts.value[sessionId] = syncedKeyCounts
   }
 
 
@@ -572,7 +587,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
-    companionSyncedCounts.value = {}
+    companionSyncedMessageKeyCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
@@ -657,7 +672,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
-    companionSyncedCounts.value = {}
+    companionSyncedMessageKeyCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
