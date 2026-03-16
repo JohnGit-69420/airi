@@ -54,6 +54,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
       baseUrl: env.MEM0_BASE_URL,
       apiKey: env.MEM0_API_KEY,
       authScheme: env.MEM0_AUTH_SCHEME,
+      appId: env.MEM0_APP_ID,
       orgId: env.MEM0_ORG_ID,
       projectId: env.MEM0_PROJECT_ID,
     })
@@ -104,6 +105,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     memoryDataPath,
     memoryProvider: env.MEMORY_PROVIDER,
     mem0AuthScheme: env.MEM0_AUTH_SCHEME,
+    mem0AppId: env.MEM0_APP_ID,
     remindersDataPath,
     telegramDataPath,
     telegramEnabled: env.TELEGRAM_ENABLED,

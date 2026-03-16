@@ -85,6 +85,8 @@ Set `MEMORY_PROVIDER=mem0` and configure `MEM0_BASE_URL` + `MEM0_API_KEY` (optio
 
 If your mem0 deployment rejects auth with 401, set `MEM0_AUTH_SCHEME` to one of: `bearer`, `token`, or `api-key`.
 
+If mem0 returns `One of the filters: app_id, user_id, agent_id, run_id is required!`, set `MEM0_APP_ID` and ensure calls include a non-empty `sessionId` so `user_id` is sent.
+
 7. List available integrations and invoke the sample read-only integration:
 
 ```bash

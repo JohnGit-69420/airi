@@ -14,6 +14,7 @@ const RawEnvSchema = object({
   MEM0_BASE_URL: optional(string(), ''),
   MEM0_API_KEY: optional(string(), ''),
   MEM0_AUTH_SCHEME: optional(string(), 'bearer'),
+  MEM0_APP_ID: optional(string(), ''),
   MEM0_ORG_ID: optional(string(), ''),
   MEM0_PROJECT_ID: optional(string(), ''),
   DATA_PATH_REMINDERS: optional(string(), './.data/reminders.json'),
@@ -56,6 +57,7 @@ export interface Env {
   MEM0_BASE_URL: string
   MEM0_API_KEY: string
   MEM0_AUTH_SCHEME: 'bearer' | 'token' | 'api-key'
+  MEM0_APP_ID: string
   MEM0_ORG_ID: string
   MEM0_PROJECT_ID: string
   DATA_PATH_REMINDERS: string
@@ -148,6 +150,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     MEM0_BASE_URL: raw.MEM0_BASE_URL,
     MEM0_API_KEY: raw.MEM0_API_KEY,
     MEM0_AUTH_SCHEME: mem0AuthScheme,
+    MEM0_APP_ID: raw.MEM0_APP_ID,
     MEM0_ORG_ID: raw.MEM0_ORG_ID,
     MEM0_PROJECT_ID: raw.MEM0_PROJECT_ID,
     DATA_PATH_REMINDERS: raw.DATA_PATH_REMINDERS,

@@ -1,18 +1,18 @@
 import type { createChatRuntime } from '../modules/chat/service'
 
 import { Hono } from 'hono'
-import { number, object, optional, parse, picklist, string } from 'valibot'
+import { minLength, number, object, optional, parse, picklist, pipe, string } from 'valibot'
 
 const SearchMemoriesSchema = object({
-  query: string(),
+  query: pipe(string(), minLength(1)),
   limit: optional(number()),
   sessionId: optional(string()),
 })
 
 const RememberMessageSchema = object({
-  sessionId: string(),
+  sessionId: pipe(string(), minLength(1)),
   role: picklist(['system', 'user', 'assistant']),
-  content: string(),
+  content: pipe(string(), minLength(1)),
 })
 
 /**
