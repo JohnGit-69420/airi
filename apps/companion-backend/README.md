@@ -83,6 +83,32 @@ curl -X POST http://localhost:3100/api/memory/remember \
 
 Set `MEMORY_PROVIDER=mem0` and configure `MEM0_BASE_URL` + `MEM0_API_KEY` (optionally `MEM0_ORG_ID` and `MEM0_PROJECT_ID`) to use mem0-backed compaction/retrieval instead of local JSON memory.
 
+Minimal `.env` profile (copy/paste and replace placeholders):
+
+```env
+PORT=3100
+
+DEVICE_TOKENS=desktop-dev-token
+DEVICE_TOKEN_SCOPES=desktop-dev-token:integrations:read|integrations:invoke:system-info|telegram:read|telegram:poll|telegram:send|telegram:send:voice|telegram:retry
+
+DATA_PATH_CHATS=./.data/chats.json
+DATA_PATH_MEMORY=./.data/memory.json
+DATA_PATH_REMINDERS=./.data/reminders.json
+DATA_PATH_TELEGRAM=./.data/telegram.json
+
+MEMORY_PROVIDER=mem0
+MEM0_BASE_URL=https://api.mem0.ai
+MEM0_API_KEY=YOUR_MEM0_API_KEY
+MEM0_AUTH_SCHEME=token
+MEM0_APP_ID=YOUR_MEM0_APP_ID
+MEM0_ORG_ID=
+MEM0_PROJECT_ID=
+
+TELEGRAM_ENABLED=false
+JELLYFIN_AWARENESS_ENABLED=false
+SESSION_MAX_MESSAGES=20
+```
+
 If your mem0 deployment rejects auth with 401, set `MEM0_AUTH_SCHEME` to one of: `bearer`, `token`, or `api-key`.
 
 If mem0 returns `One of the filters: app_id, user_id, agent_id, run_id is required!`, set `MEM0_APP_ID` and ensure calls include a non-empty `sessionId` so `user_id` is sent.
