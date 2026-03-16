@@ -13,7 +13,7 @@ M1 provided:
 M2 adds:
 
 - persistent session and message history stored on disk
-- memory abstraction with summary compaction
+- memory abstraction with summary compaction (local JSON or mem0 provider)
 - deterministic session rollover when message threshold is reached
 
 M4 adds:
@@ -68,6 +68,10 @@ curl -X POST http://localhost:3100/api/chats/<SESSION_ID>/messages \
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/chats/<SESSION_ID>
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/memory/recent
 ```
+
+### Optional mem0 memory provider
+
+Set `MEMORY_PROVIDER=mem0` and configure `MEM0_BASE_URL` + `MEM0_API_KEY` (optionally `MEM0_ORG_ID` and `MEM0_PROJECT_ID`) to use mem0-backed compaction/retrieval instead of local JSON memory.
 
 7. List available integrations and invoke the sample read-only integration:
 

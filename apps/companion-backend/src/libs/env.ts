@@ -10,6 +10,11 @@ const RawEnvSchema = object({
   DEVICE_TOKEN_SCOPES: optional(string(), 'desktop-dev-token:integrations:read|integrations:invoke:system-info'),
   DATA_PATH_CHATS: optional(string(), './.data/chats.json'),
   DATA_PATH_MEMORY: optional(string(), './.data/memory.json'),
+  MEMORY_PROVIDER: optional(string(), 'local'),
+  MEM0_BASE_URL: optional(string(), ''),
+  MEM0_API_KEY: optional(string(), ''),
+  MEM0_ORG_ID: optional(string(), ''),
+  MEM0_PROJECT_ID: optional(string(), ''),
   DATA_PATH_REMINDERS: optional(string(), './.data/reminders.json'),
 
   DATA_PATH_TELEGRAM: optional(string(), './.data/telegram.json'),
@@ -46,6 +51,11 @@ export interface Env {
   DEVICE_TOKEN_SCOPES: string
   DATA_PATH_CHATS: string
   DATA_PATH_MEMORY: string
+  MEMORY_PROVIDER: 'local' | 'mem0'
+  MEM0_BASE_URL: string
+  MEM0_API_KEY: string
+  MEM0_ORG_ID: string
+  MEM0_PROJECT_ID: string
   DATA_PATH_REMINDERS: string
 
   DATA_PATH_TELEGRAM: string
@@ -89,6 +99,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   if (!Number.isFinite(sessionMaxMessages) || sessionMaxMessages <= 0)
     throw new Error('SESSION_MAX_MESSAGES must be a positive integer')
 
+  const memoryProvider = raw.MEMORY_PROVIDER === 'mem0' ? 'mem0' : 'local'
+
   const telegramPollIntervalSeconds = Number.parseInt(raw.TELEGRAM_POLL_INTERVAL_SECONDS, 10)
   if (!Number.isFinite(telegramPollIntervalSeconds) || telegramPollIntervalSeconds <= 0)
     throw new Error('TELEGRAM_POLL_INTERVAL_SECONDS must be a positive integer')
@@ -124,6 +136,11 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     DEVICE_TOKEN_SCOPES: raw.DEVICE_TOKEN_SCOPES,
     DATA_PATH_CHATS: raw.DATA_PATH_CHATS,
     DATA_PATH_MEMORY: raw.DATA_PATH_MEMORY,
+    MEMORY_PROVIDER: memoryProvider,
+    MEM0_BASE_URL: raw.MEM0_BASE_URL,
+    MEM0_API_KEY: raw.MEM0_API_KEY,
+    MEM0_ORG_ID: raw.MEM0_ORG_ID,
+    MEM0_PROJECT_ID: raw.MEM0_PROJECT_ID,
     DATA_PATH_REMINDERS: raw.DATA_PATH_REMINDERS,
 
     DATA_PATH_TELEGRAM: raw.DATA_PATH_TELEGRAM,

@@ -131,6 +131,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const messagesToAppend: ChatHistoryItem[] = []
 
     for (const remoteMessage of remoteMessages) {
+      if (remoteMessage.role === 'system')
+        continue
+
       const content = remoteMessage.content.trim()
       if (!content)
         continue
@@ -289,6 +292,26 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return companionSessionId
   }
 
+  async function updateCompanionSessionMeta(sessionId: string, companionSessionId: string) {
+    const meta = sessionMetas.value[sessionId]
+    if (!meta || meta.companionSessionId === companionSessionId)
+      return
+
+    const nextMeta = {
+      ...meta,
+      companionSessionId,
+    }
+
+    sessionMetas.value[sessionId] = nextMeta
+    const characterIndex = index.value?.characters[meta.characterId]
+    if (characterIndex)
+      characterIndex.sessions[sessionId] = nextMeta
+
+    const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
+    await enqueuePersist(() => chatSessionsRepo.saveSession(sessionId, { meta: nextMeta, messages }))
+    await persistIndex()
+  }
+
   async function syncSessionToCompanion(sessionId: string) {
     if (!isCompanionSyncEnabled())
       return
@@ -297,7 +320,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (messages.length === 0)
       return
 
-    const companionSessionId = await ensureCompanionSession(sessionId)
+    let companionSessionId = await ensureCompanionSession(sessionId)
     if (!companionSessionId)
       return
 
@@ -305,7 +328,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     await mergeCompanionMessagesIntoSession(sessionId, details.messages)
 
     const syncedIds: Record<string, true> = {
-      ...(companionSyncedMessageIds.value[sessionId] ?? {}),
+      ...companionSyncedMessageIds.value[sessionId],
     }
     for (const message of details.messages) {
       if (message.clientMessageId)
@@ -345,12 +368,22 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (localSeenKeyCounts[key] <= syncedCountForKey)
         continue
 
-      await appendCompanionMessage({
+      const appendResult = await appendCompanionMessage({
         sessionId: companionSessionId,
         role: message.role,
         content,
         clientMessageId: message.id,
       })
+
+      if (appendResult.rolledOverSessionId && appendResult.rolledOverSessionId !== companionSessionId) {
+        companionSyncedMessageIds.value[sessionId] = {}
+        companionSyncedMessageKeyCounts.value[sessionId] = {}
+        for (const key of Object.keys(syncedIds))
+          delete syncedIds[key]
+        syncedKeyCounts = {}
+        companionSessionId = appendResult.rolledOverSessionId
+        await updateCompanionSessionMeta(sessionId, appendResult.rolledOverSessionId)
+      }
 
       if (message.id)
         syncedIds[message.id] = true

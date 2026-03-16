@@ -30,6 +30,14 @@ const EMPTY_DB: ChatDatabase = {
   messages: [],
 }
 
+function normalizeMessageContent(content: string) {
+  return content
+    .replaceAll(/<br\s*\/?>/gi, '\n')
+    .replaceAll(/<\/?span[^>]*>/gi, '')
+    .replaceAll(/\s+r>(?=[A-Za-z])/g, ' ')
+    .trim()
+}
+
 /**
  * Reads JSON persistence from disk if available; otherwise returns empty storage.
  */
@@ -83,6 +91,8 @@ export function createChatStore(dataPath: string) {
       if (!session)
         throw new Error(`Session not found: ${input.sessionId}`)
 
+      const normalizedContent = normalizeMessageContent(input.content)
+
       if (input.clientMessageId) {
         const existing = database.messages.find(message => message.sessionId === input.sessionId && message.clientMessageId === input.clientMessageId)
         if (existing)
@@ -96,7 +106,7 @@ export function createChatStore(dataPath: string) {
       const latestForSession = database.messages
         .filter(message => message.sessionId === input.sessionId)
         .at(-1)
-      if (latestForSession && latestForSession.role === input.role && latestForSession.content === input.content)
+      if (latestForSession && latestForSession.role === input.role && latestForSession.content === normalizedContent)
         return latestForSession
 
       const message: ChatMessage = {
@@ -104,7 +114,7 @@ export function createChatStore(dataPath: string) {
         clientMessageId: input.clientMessageId,
         sessionId: input.sessionId,
         role: input.role,
-        content: input.content,
+        content: normalizedContent,
         createdAt: new Date().toISOString(),
       }
 

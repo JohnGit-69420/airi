@@ -11,6 +11,7 @@ import { createChatRuntime } from './modules/chat/service'
 import { createChatStore } from './modules/chat/store'
 import { startJellyfinAwarenessRunner } from './modules/integrations/jellyfin-awareness-runner'
 import { createIntegrationRegistry } from './modules/integrations/registry'
+import { createMem0MemoryStore } from './modules/memory/mem0-store'
 import { createMemoryStore } from './modules/memory/store'
 import { createTelegramRuntime } from './modules/messaging/telegram'
 import { startTelegramRunner } from './modules/messaging/telegram-runner'
@@ -48,7 +49,14 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
   const requireDeviceToken = createDeviceTokenAuthMiddleware(deviceTokens, deviceTokenScopes)
 
   const chatStore = createChatStore(chatDataPath)
-  const memoryStore = createMemoryStore(memoryDataPath)
+  const memoryStore = env.MEMORY_PROVIDER === 'mem0'
+    ? createMem0MemoryStore({
+        baseUrl: env.MEM0_BASE_URL,
+        apiKey: env.MEM0_API_KEY,
+        orgId: env.MEM0_ORG_ID,
+        projectId: env.MEM0_PROJECT_ID,
+      })
+    : createMemoryStore(memoryDataPath)
   const chatRuntime = createChatRuntime(chatStore, memoryStore, { sessionMaxMessages })
   const integrationRegistry = createIntegrationRegistry()
   const reminderStore = createReminderStore(remindersDataPath)
@@ -93,6 +101,7 @@ function buildApp({ deviceTokensRaw, deviceTokenScopesRaw, chatDataPath, memoryD
     sessionMaxMessages,
     chatDataPath,
     memoryDataPath,
+    memoryProvider: env.MEMORY_PROVIDER,
     remindersDataPath,
     telegramDataPath,
     telegramEnabled: env.TELEGRAM_ENABLED,

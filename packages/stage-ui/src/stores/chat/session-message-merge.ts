@@ -26,6 +26,21 @@ function getMessageFingerprint(message: ChatHistoryItem) {
   ].join('\u001F')
 }
 
+function sortMessagesByCreatedAt(messages: ChatHistoryItem[]) {
+  return [...messages]
+    .map((message, index) => ({
+      message,
+      index,
+      createdAt: message.createdAt ?? 0,
+    }))
+    .sort((left, right) => {
+      if (left.createdAt === right.createdAt)
+        return left.index - right.index
+      return left.createdAt - right.createdAt
+    })
+    .map(item => item.message)
+}
+
 export function mergeLoadedSessionMessages(storedMessages: ChatHistoryItem[], currentMessages: ChatHistoryItem[]) {
   if (currentMessages.length === 0)
     return storedMessages
@@ -53,7 +68,7 @@ export function mergeLoadedSessionMessages(storedMessages: ChatHistoryItem[], cu
       : undefined
 
   if (storedMessages.length === 0 && systemMessage)
-    return [systemMessage, ...extraMessages]
+    return sortMessagesByCreatedAt([systemMessage, ...extraMessages])
 
-  return [...storedMessages, ...extraMessages]
+  return sortMessagesByCreatedAt([...storedMessages, ...extraMessages])
 }
