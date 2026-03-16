@@ -1,7 +1,7 @@
 import type { ChatRole } from './store'
 
 import type { createChatStore } from './store'
-import type { createMemoryStore } from '../memory/store'
+import type { MemoryStoreContract } from '../memory/store'
 
 interface ChatRuntimeOptions {
   sessionMaxMessages: number
@@ -12,9 +12,24 @@ interface ChatRuntimeOptions {
  */
 export function createChatRuntime(
   chatStore: ReturnType<typeof createChatStore>,
-  memoryStore: ReturnType<typeof createMemoryStore>,
+  memoryStore: MemoryStoreContract,
   options: ChatRuntimeOptions,
 ) {
+  function buildRecoveredMemoryPrompt(memories: Array<{ summary: string }>) {
+    const normalized = memories
+      .map(memory => memory.summary.replaceAll(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .slice(0, 3)
+
+    if (normalized.length === 0)
+      return ''
+
+    return [
+      'Long-term memory highlights (use naturally only when relevant):',
+      ...normalized.map((summary, index) => `${index + 1}. ${summary}`),
+    ].join('\n')
+  }
+
   return {
     async createSession(input: { clientId: string, clientType: 'desktop' | 'web' | 'mobile' | 'other', parentSessionId?: string }) {
       return chatStore.createSession(input)
@@ -40,11 +55,12 @@ export function createChatRuntime(
         })
 
         const memories = await memoryStore.getRecentMemories(2)
-        if (memories.length > 0) {
+        const recoveredPrompt = buildRecoveredMemoryPrompt(memories)
+        if (recoveredPrompt) {
           await chatStore.addMessage({
             sessionId: nextSession.id,
             role: 'system',
-            content: `Recovered memory context:\n${memories.map(entry => `- ${entry.summary}`).join('\n')}`,
+            content: recoveredPrompt,
           })
         }
 
@@ -72,6 +88,14 @@ export function createChatRuntime(
 
     async getRecentMemories(limit = 3) {
       return memoryStore.getRecentMemories(limit)
+    },
+
+    async searchMemories(input: { query: string, limit?: number, sessionId?: string }) {
+      return memoryStore.searchMemories(input.query, input.limit ?? 3, input.sessionId)
+    },
+
+    async rememberMessage(input: { sessionId: string, role: ChatRole, content: string }) {
+      return memoryStore.rememberMessage(input.sessionId, input.role, input.content)
     },
   }
 }

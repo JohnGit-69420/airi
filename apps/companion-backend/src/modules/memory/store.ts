@@ -10,6 +10,13 @@ export interface MemoryEntry {
   createdAt: string
 }
 
+export interface MemoryStoreContract {
+  compactSessionToMemory: (sessionId: string, messages: ChatMessage[]) => Promise<MemoryEntry>
+  getRecentMemories: (limit?: number) => Promise<MemoryEntry[]>
+  searchMemories: (query: string, limit?: number, sessionId?: string) => Promise<MemoryEntry[]>
+  rememberMessage: (sessionId: string, role: ChatMessage['role'], content: string) => Promise<MemoryEntry | null>
+}
+
 interface MemoryDatabase {
   memories: MemoryEntry[]
 }
@@ -54,10 +61,42 @@ function summarizeMessages(messages: ChatMessage[]): string {
     .slice(0, 1200)
 }
 
+function normalizeMemoryText(content: string) {
+  return content
+    .replaceAll(/\s+/g, ' ')
+    .trim()
+}
+
+function scoreMemory(summary: string, queryTerms: string[]) {
+  const lowerSummary = summary.toLowerCase()
+  return queryTerms.reduce((score, term) => score + (lowerSummary.includes(term) ? 1 : 0), 0)
+}
+
+function shouldRememberContent(content: string) {
+  const normalized = content.toLowerCase()
+
+  // NOTICE: Local JSON memory path uses deterministic heuristics until an always-on
+  // classifier is introduced for non-mem0 providers.
+  const factHints = [
+    'my favorite',
+    'i work at',
+    'i work in',
+    'i live in',
+    'my name is',
+    'i prefer',
+    'i like',
+    'i dislike',
+    'my birthday',
+    'remember that',
+  ]
+
+  return factHints.some(hint => normalized.includes(hint))
+}
+
 /**
  * Creates memory persistence store with summary-based retrieval.
  */
-export function createMemoryStore(dataPath: string) {
+export function createMemoryStore(dataPath: string): MemoryStoreContract {
   return {
     async compactSessionToMemory(sessionId: string, messages: ChatMessage[]): Promise<MemoryEntry> {
       const database = await readDatabase(dataPath)
@@ -79,6 +118,49 @@ export function createMemoryStore(dataPath: string) {
       return [...database.memories]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit)
+    },
+
+    async searchMemories(query: string, limit = 3, sessionId?: string): Promise<MemoryEntry[]> {
+      const database = await readDatabase(dataPath)
+      const queryTerms = query.toLowerCase().split(/\s+/g).filter(Boolean)
+      const source = sessionId
+        ? database.memories.filter(memory => memory.sourceSessionId === sessionId)
+        : database.memories
+
+      return [...source]
+        .map(memory => ({
+          memory,
+          score: scoreMemory(memory.summary, queryTerms),
+        }))
+        .filter(item => item.score > 0)
+        .sort((left, right) => right.score - left.score || right.memory.createdAt.localeCompare(left.memory.createdAt))
+        .slice(0, limit)
+        .map(item => item.memory)
+    },
+
+    async rememberMessage(sessionId: string, role: ChatMessage['role'], content: string): Promise<MemoryEntry | null> {
+      if (role !== 'user')
+        return null
+
+      const normalized = normalizeMemoryText(content)
+      if (!normalized || !shouldRememberContent(normalized))
+        return null
+
+      const database = await readDatabase(dataPath)
+      const existing = database.memories.find(memory => memory.sourceSessionId === sessionId && memory.summary === normalized)
+      if (existing)
+        return existing
+
+      const entry: MemoryEntry = {
+        id: crypto.randomUUID(),
+        sourceSessionId: sessionId,
+        summary: normalized,
+        createdAt: new Date().toISOString(),
+      }
+
+      database.memories.push(entry)
+      await writeDatabase(dataPath, database)
+      return entry
     },
   }
 }

@@ -395,6 +395,13 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     companionSyncedMessageKeyCounts.value[sessionId] = syncedKeyCounts
   }
 
+  async function ensureCompanionSessionId(sessionId: string) {
+    if (!isCompanionSyncEnabled())
+      return null
+
+    return await ensureCompanionSession(sessionId)
+  }
+
 
   async function flushPersistAndSyncQueues() {
     await persistQueue
@@ -823,6 +830,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     setSessionMessages,
     persistSessionMessages,
     getSessionMessages,
+    ensureCompanionSessionId,
     sessionMessages,
     sessionMetas,
     getSessionGeneration,

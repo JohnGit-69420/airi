@@ -1,6 +1,6 @@
 import type { ChatMessage } from '../chat/store'
 
-import type { MemoryEntry } from './store'
+import type { MemoryEntry, MemoryStoreContract } from './store'
 
 interface Mem0Message {
   role: 'system' | 'user' | 'assistant'
@@ -106,5 +106,55 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         }
       })
     },
-  }
+
+    async searchMemories(query: string, limit = 3, sessionId?: string): Promise<MemoryEntry[]> {
+      const response = await fetch(`${endpoint}/v1/memories/search`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({ query, limit, user_id: sessionId ? `session:${sessionId}` : undefined }),
+      })
+
+      if (!response.ok)
+        throw new Error(`Mem0 search failed (${response.status})`)
+
+      const raw = await response.json() as { memories?: Mem0SearchResult[] }
+      const memories = Array.isArray(raw.memories) ? raw.memories : []
+
+      return memories.slice(0, limit).map(memory => ({
+        id: memory.id ?? crypto.randomUUID(),
+        sourceSessionId: sessionId ?? 'mem0',
+        summary: memory.memory ?? '',
+        createdAt: memory.created_at ?? new Date().toISOString(),
+      }))
+    },
+
+    async rememberMessage(sessionId: string, role: ChatMessage['role'], content: string): Promise<MemoryEntry | null> {
+      if (role !== 'user')
+        return null
+
+      const summary = content.trim()
+      if (!summary)
+        return null
+
+      const response = await fetch(`${endpoint}/v1/memories`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: summary } satisfies Mem0Message],
+          user_id: `session:${sessionId}`,
+        }),
+      })
+
+      if (!response.ok)
+        throw new Error(`Mem0 remember failed (${response.status})`)
+
+      const raw = await response.json() as { id?: string, created_at?: string }
+      return {
+        id: raw.id ?? crypto.randomUUID(),
+        sourceSessionId: sessionId,
+        summary,
+        createdAt: raw.created_at ?? new Date().toISOString(),
+      }
+    },
+  } satisfies MemoryStoreContract
 }

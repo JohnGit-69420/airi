@@ -11,9 +11,23 @@ export interface RetrieveRecentInput {
   limit: number
 }
 
+export interface SearchMemoryInput {
+  query: string
+  limit: number
+  sessionId?: string
+}
+
+export interface RememberMessageInput {
+  sessionId: string
+  role: ChatMessage['role']
+  content: string
+}
+
 export interface MemoryProviderContract {
   compactSessionToMemory(input: CompactSessionInput): Promise<MemoryEntry>
   getRecentMemories(input: RetrieveRecentInput): Promise<MemoryEntry[]>
+  searchMemories(input: SearchMemoryInput): Promise<MemoryEntry[]>
+  rememberMessage(input: RememberMessageInput): Promise<MemoryEntry | null>
 }
 
 /**
@@ -22,9 +36,13 @@ export interface MemoryProviderContract {
 export function createLocalMemoryProviderAdapter(localMemoryStore: {
   compactSessionToMemory: (sessionId: string, messages: ChatMessage[]) => Promise<MemoryEntry>
   getRecentMemories: (limit?: number) => Promise<MemoryEntry[]>
+  searchMemories: (query: string, limit?: number, sessionId?: string) => Promise<MemoryEntry[]>
+  rememberMessage: (sessionId: string, role: ChatMessage['role'], content: string) => Promise<MemoryEntry | null>
 }): MemoryProviderContract {
   return {
     compactSessionToMemory: input => localMemoryStore.compactSessionToMemory(input.sessionId, input.messages),
     getRecentMemories: input => localMemoryStore.getRecentMemories(input.limit),
+    searchMemories: input => localMemoryStore.searchMemories(input.query, input.limit, input.sessionId),
+    rememberMessage: input => localMemoryStore.rememberMessage(input.sessionId, input.role, input.content),
   }
 }

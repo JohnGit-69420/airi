@@ -81,3 +81,26 @@ export async function appendCompanionMessage(input: { sessionId: string, role: '
     rolledOverSessionId: string | null
   }
 }
+
+export async function searchCompanionMemories(input: { query: string, sessionId?: string, limit?: number }) {
+  const response = await companionFetch('/api/memory/search', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+
+  return await response.json() as {
+    memories: Array<{ id: string, sourceSessionId: string, summary: string, createdAt: string }>
+  }
+}
+
+export async function rememberCompanionMessage(input: { sessionId: string, role: 'system' | 'user' | 'assistant', content: string }) {
+  const response = await companionFetch('/api/memory/remember', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+
+  return await response.json() as {
+    stored: boolean
+    memory: { id: string, sourceSessionId: string, summary: string, createdAt: string } | null
+  }
+}

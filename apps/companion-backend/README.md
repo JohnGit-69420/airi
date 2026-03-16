@@ -67,6 +67,16 @@ curl -X POST http://localhost:3100/api/chats/<SESSION_ID>/messages \
 ```bash
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/chats/<SESSION_ID>
 curl -H 'Authorization: Bearer desktop-dev-token' http://localhost:3100/api/memory/recent
+
+curl -X POST http://localhost:3100/api/memory/search \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"work","sessionId":"<SESSION_ID>","limit":3}'
+
+curl -X POST http://localhost:3100/api/memory/remember \
+  -H 'Authorization: Bearer desktop-dev-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"<SESSION_ID>","role":"user","content":"My favorite color is red"}'
 ```
 
 ### Optional mem0 memory provider
