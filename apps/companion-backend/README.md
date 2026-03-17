@@ -111,7 +111,7 @@ SESSION_MAX_MESSAGES=20
 
 If your mem0 deployment rejects auth with 401, set `MEM0_AUTH_SCHEME` to one of: `bearer`, `token`, or `api-key`.
 
-If mem0 returns `One of the filters: app_id, user_id, agent_id, run_id is required!`, set `MEM0_APP_ID` and ensure calls include a non-empty `sessionId` so `user_id` is sent.
+If mem0 returns `One of the filters: app_id, user_id, agent_id, run_id is required!`, set `MEM0_APP_ID` and ensure calls include a non-empty `sessionId` so `user_id` is sent. You can also send `app_id` (or `appId`) per request on `/api/memory/remember` and `/api/memory/search` when testing deployments that require explicit app scoping.
 
 
 #### mem0 testing process (smoke test)

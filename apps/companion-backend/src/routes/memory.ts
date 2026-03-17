@@ -7,12 +7,16 @@ const SearchMemoriesSchema = object({
   query: pipe(string(), minLength(1)),
   limit: optional(number()),
   sessionId: optional(string()),
+  app_id: optional(string()),
+  appId: optional(string()),
 })
 
 const RememberMessageSchema = object({
   sessionId: pipe(string(), minLength(1)),
   role: picklist(['system', 'user', 'assistant']),
   content: pipe(string(), minLength(1)),
+  app_id: optional(string()),
+  appId: optional(string()),
 })
 
 /**
@@ -31,6 +35,7 @@ export function createMemoryRoutes(chatRuntime: ReturnType<typeof createChatRunt
           query: body.query,
           limit: body.limit,
           sessionId: body.sessionId,
+          appId: body.appId ?? body.app_id,
         })
         return c.json({ memories })
       }
@@ -41,7 +46,12 @@ export function createMemoryRoutes(chatRuntime: ReturnType<typeof createChatRunt
     .post('/remember', async (c) => {
       try {
         const body = parse(RememberMessageSchema, await c.req.json())
-        const memory = await chatRuntime.rememberMessage(body)
+        const memory = await chatRuntime.rememberMessage({
+          sessionId: body.sessionId,
+          role: body.role,
+          content: body.content,
+          appId: body.appId ?? body.app_id,
+        })
         return c.json({ memory, stored: Boolean(memory) })
       }
       catch (error) {

@@ -1,7 +1,7 @@
+import type { ChatMessage } from '../chat/store'
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-
-import type { ChatMessage } from '../chat/store'
 
 export interface MemoryEntry {
   id: string
@@ -13,8 +13,8 @@ export interface MemoryEntry {
 export interface MemoryStoreContract {
   compactSessionToMemory: (sessionId: string, messages: ChatMessage[]) => Promise<MemoryEntry>
   getRecentMemories: (limit?: number) => Promise<MemoryEntry[]>
-  searchMemories: (query: string, limit?: number, sessionId?: string) => Promise<MemoryEntry[]>
-  rememberMessage: (sessionId: string, role: ChatMessage['role'], content: string) => Promise<MemoryEntry | null>
+  searchMemories: (query: string, limit?: number, sessionId?: string, appId?: string) => Promise<MemoryEntry[]>
+  rememberMessage: (sessionId: string, role: ChatMessage['role'], content: string, appId?: string) => Promise<MemoryEntry | null>
 }
 
 interface MemoryDatabase {

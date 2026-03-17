@@ -1,5 +1,4 @@
 import type { ChatMessage } from '../chat/store'
-
 import type { MemoryEntry, MemoryStoreContract } from './store'
 
 interface Mem0Message {
@@ -54,11 +53,12 @@ async function assertMem0Ok(response: Response, operation: string) {
   throw new Error(`Mem0 ${operation} failed (${response.status}): ${body.slice(0, 300)}`)
 }
 
-function buildMem0Filters(config: Mem0ClientConfig, sessionId?: string) {
+function buildMem0Filters(config: Mem0ClientConfig, sessionId?: string, appId?: string) {
   const filters: Record<string, string> = {}
+  const resolvedAppId = appId || config.appId
 
-  if (config.appId)
-    filters.app_id = config.appId
+  if (resolvedAppId)
+    filters.app_id = resolvedAppId
 
   if (sessionId)
     filters.user_id = `session:${sessionId}`
@@ -95,6 +95,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
           } satisfies Mem0Message,
         ],
         user_id: `session:${sessionId}`,
+        app_id: config.appId || undefined,
         filters,
       }
 
@@ -119,7 +120,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
       const response = await fetch(`${endpoint}/v1/memories/search`, {
         method: 'POST',
         headers: buildMem0Headers(config),
-        body: JSON.stringify({ query: 'recent companion memories', limit, filters: buildMem0Filters(config) }),
+        body: JSON.stringify({ query: 'recent companion memories', limit, app_id: config.appId || undefined, filters: buildMem0Filters(config) }),
       })
 
       await assertMem0Ok(response, 'search')
@@ -137,12 +138,12 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
       })
     },
 
-    async searchMemories(query: string, limit = 3, sessionId?: string): Promise<MemoryEntry[]> {
-      const filters = buildMem0Filters(config, sessionId)
+    async searchMemories(query: string, limit = 3, sessionId?: string, appId?: string): Promise<MemoryEntry[]> {
+      const filters = buildMem0Filters(config, sessionId, appId)
       const response = await fetch(`${endpoint}/v1/memories/search`, {
         method: 'POST',
         headers: buildMem0Headers(config),
-        body: JSON.stringify({ query, limit, user_id: sessionId ? `session:${sessionId}` : undefined, filters }),
+        body: JSON.stringify({ query, limit, user_id: sessionId ? `session:${sessionId}` : undefined, app_id: appId || config.appId || undefined, filters }),
       })
 
       await assertMem0Ok(response, 'search')
@@ -158,7 +159,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
       }))
     },
 
-    async rememberMessage(sessionId: string, role: ChatMessage['role'], content: string): Promise<MemoryEntry | null> {
+    async rememberMessage(sessionId: string, role: ChatMessage['role'], content: string, appId?: string): Promise<MemoryEntry | null> {
       if (role !== 'user')
         return null
 
@@ -166,13 +167,14 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
       if (!summary)
         return null
 
-      const filters = buildMem0Filters(config, sessionId)
+      const filters = buildMem0Filters(config, sessionId, appId)
       const response = await fetch(`${endpoint}/v1/memories`, {
         method: 'POST',
         headers: buildMem0Headers(config),
         body: JSON.stringify({
           messages: [{ role: 'user', content: summary } satisfies Mem0Message],
           user_id: `session:${sessionId}`,
+          app_id: appId || config.appId || undefined,
           filters,
         }),
       })

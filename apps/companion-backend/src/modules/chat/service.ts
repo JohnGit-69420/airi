@@ -1,7 +1,5 @@
-import type { ChatRole } from './store'
-
-import type { createChatStore } from './store'
 import type { MemoryStoreContract } from '../memory/store'
+import type { ChatRole, createChatStore } from './store'
 
 interface ChatRuntimeOptions {
   sessionMaxMessages: number
@@ -90,12 +88,12 @@ export function createChatRuntime(
       return memoryStore.getRecentMemories(limit)
     },
 
-    async searchMemories(input: { query: string, limit?: number, sessionId?: string }) {
-      return memoryStore.searchMemories(input.query, input.limit ?? 3, input.sessionId)
+    async searchMemories(input: { query: string, limit?: number, sessionId?: string, appId?: string }) {
+      return memoryStore.searchMemories(input.query, input.limit ?? 3, input.sessionId, input.appId)
     },
 
-    async rememberMessage(input: { sessionId: string, role: ChatRole, content: string }) {
-      return memoryStore.rememberMessage(input.sessionId, input.role, input.content)
+    async rememberMessage(input: { sessionId: string, role: ChatRole, content: string, appId?: string }) {
+      return memoryStore.rememberMessage(input.sessionId, input.role, input.content, input.appId)
     },
   }
 }
