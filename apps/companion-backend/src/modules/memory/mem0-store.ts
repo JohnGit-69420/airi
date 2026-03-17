@@ -45,80 +45,35 @@ function buildMem0Headers(config: Mem0ClientConfig) {
   return headers
 }
 
-function buildMem0Filters(userId: string | undefined, appId: string | undefined) {
-  const filters: Record<string, string> = {}
+async function assertMem0Ok(response: Response, operation: string) {
+  if (response.ok)
+    return
 
-  if (appId)
-    filters.app_id = appId
-
-  if (userId)
-    filters.user_id = userId
-
-  return Object.keys(filters).length > 0 ? filters : undefined
-}
-
-function resolveUserIds(sessionId?: string) {
-  if (!sessionId)
-    return [undefined]
-
-  // NOTICE: Some mem0 deployments only accept raw user_id while others are okay
-  // with namespaced ids. We attempt both deterministically to improve portability.
-  return [`session:${sessionId}`, sessionId]
+  const body = await response.text()
+  throw new Error(`Mem0 ${operation} failed (${response.status}): ${body.slice(0, 300)}`)
 }
 
 function resolveAppId(config: Mem0ClientConfig, appId?: string) {
   return appId || config.appId || undefined
 }
 
-function isMem0MissingFilterError(body: string) {
-  return body.includes('One of the filters: app_id, user_id, agent_id, run_id is required!')
+function resolveUserId(sessionId?: string) {
+  return sessionId || undefined
 }
 
-async function postMem0WithFilterFallback(
-  endpoint: string,
-  config: Mem0ClientConfig,
-  operation: string,
-  buildBody: (userId: string | undefined, appId: string | undefined) => Record<string, unknown>,
-  options?: { sessionId?: string, appId?: string },
-): Promise<Response> {
-  const resolvedAppId = resolveAppId(config, options?.appId)
-  const userIds = resolveUserIds(options?.sessionId)
+function buildSearchFilters(userId: string | undefined, appId: string | undefined) {
+  const conditions: Array<Record<string, string>> = []
 
-  let lastStatus = 0
-  let lastBody = ''
+  if (userId)
+    conditions.push({ user_id: userId })
 
-  for (const userId of userIds) {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: buildMem0Headers(config),
-      body: JSON.stringify(buildBody(userId, resolvedAppId)),
-    })
+  if (appId)
+    conditions.push({ app_id: appId })
 
-    if (response.ok)
-      return response
+  if (conditions.length === 0)
+    return undefined
 
-    lastStatus = response.status
-    lastBody = await response.text()
-
-    if (!isMem0MissingFilterError(lastBody))
-      break
-  }
-
-  throw new Error(`Mem0 ${operation} failed (${lastStatus}): ${lastBody.slice(0, 300)}`)
-}
-
-
-function buildMem0IdentityFields(userId: string | undefined, appId: string | undefined, sessionId?: string) {
-  return {
-    user_id: userId,
-    userId: userId,
-    app_id: appId,
-    appId: appId,
-    run_id: sessionId,
-    runId: sessionId,
-    agent_id: appId,
-    agentId: appId,
-  }
+  return { OR: conditions }
 }
 
 function summarizeMessages(messages: ChatMessage[]) {
@@ -141,22 +96,20 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
   return {
     async compactSessionToMemory(sessionId: string, messages: ChatMessage[]): Promise<MemoryEntry> {
       const summary = summarizeMessages(messages)
-      const response = await postMem0WithFilterFallback(
-        `${endpoint}/v1/memories`,
-        config,
-        'compact',
-        (userId, appId) => ({
-          messages: [
-            {
-              role: 'assistant',
-              content: summary,
-            } satisfies Mem0Message,
-          ],
-          ...buildMem0IdentityFields(userId, appId, sessionId),
-          filters: buildMem0Filters(userId, appId),
+      const userId = resolveUserId(sessionId)
+      const appId = resolveAppId(config)
+      const response = await fetch(`${endpoint}/v1/memories/`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({
+          messages: [{ role: 'assistant', content: summary } satisfies Mem0Message],
+          user_id: userId,
+          app_id: appId,
+          version: 'v2',
         }),
-        { sessionId },
-      )
+      })
+
+      await assertMem0Ok(response, 'compact')
 
       const raw = await response.json() as { id?: string, created_at?: string }
       return {
@@ -169,44 +122,43 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
 
     async getRecentMemories(limit = 3): Promise<MemoryEntry[]> {
       const appId = resolveAppId(config)
-      const response = await postMem0WithFilterFallback(
-        `${endpoint}/v1/memories/search`,
-        config,
-        'search',
-        () => ({
+      const response = await fetch(`${endpoint}/v2/memories/search/`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({
           query: 'recent companion memories',
+          filters: buildSearchFilters(undefined, appId),
           limit,
-          ...buildMem0IdentityFields(undefined, appId),
-          filters: buildMem0Filters(undefined, appId),
         }),
-      )
+      })
+
+      await assertMem0Ok(response, 'search')
 
       const raw = await response.json() as { memories?: Mem0SearchResult[] }
       const memories = Array.isArray(raw.memories) ? raw.memories : []
 
-      return memories.slice(0, limit).map((memory) => {
-        return {
-          id: memory.id ?? crypto.randomUUID(),
-          sourceSessionId: 'mem0',
-          summary: memory.memory ?? '',
-          createdAt: memory.created_at ?? new Date().toISOString(),
-        }
-      })
+      return memories.slice(0, limit).map(memory => ({
+        id: memory.id ?? crypto.randomUUID(),
+        sourceSessionId: 'mem0',
+        summary: memory.memory ?? '',
+        createdAt: memory.created_at ?? new Date().toISOString(),
+      }))
     },
 
     async searchMemories(query: string, limit = 3, sessionId?: string, appId?: string): Promise<MemoryEntry[]> {
-      const response = await postMem0WithFilterFallback(
-        `${endpoint}/v1/memories/search`,
-        config,
-        'search',
-        (userId, resolvedAppId) => ({
+      const resolvedAppId = resolveAppId(config, appId)
+      const userId = resolveUserId(sessionId)
+      const response = await fetch(`${endpoint}/v2/memories/search/`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({
           query,
           limit,
-          ...buildMem0IdentityFields(userId, resolvedAppId, sessionId),
-          filters: buildMem0Filters(userId, resolvedAppId),
+          filters: buildSearchFilters(userId, resolvedAppId),
         }),
-        { sessionId, appId },
-      )
+      })
+
+      await assertMem0Ok(response, 'search')
 
       const raw = await response.json() as { memories?: Mem0SearchResult[] }
       const memories = Array.isArray(raw.memories) ? raw.memories : []
@@ -227,17 +179,20 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
       if (!summary)
         return null
 
-      const response = await postMem0WithFilterFallback(
-        `${endpoint}/v1/memories`,
-        config,
-        'remember',
-        (userId, resolvedAppId) => ({
+      const resolvedAppId = resolveAppId(config, appId)
+      const userId = resolveUserId(sessionId)
+      const response = await fetch(`${endpoint}/v1/memories/`, {
+        method: 'POST',
+        headers: buildMem0Headers(config),
+        body: JSON.stringify({
           messages: [{ role: 'user', content: summary } satisfies Mem0Message],
-          ...buildMem0IdentityFields(userId, resolvedAppId, sessionId),
-          filters: buildMem0Filters(userId, resolvedAppId),
+          user_id: userId,
+          app_id: resolvedAppId,
+          version: 'v2',
         }),
-        { sessionId, appId },
-      )
+      })
+
+      await assertMem0Ok(response, 'remember')
 
       const raw = await response.json() as { id?: string, created_at?: string }
       return {
