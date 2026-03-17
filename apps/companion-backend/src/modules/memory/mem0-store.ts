@@ -107,6 +107,20 @@ async function postMem0WithFilterFallback(
   throw new Error(`Mem0 ${operation} failed (${lastStatus}): ${lastBody.slice(0, 300)}`)
 }
 
+
+function buildMem0IdentityFields(userId: string | undefined, appId: string | undefined, sessionId?: string) {
+  return {
+    user_id: userId,
+    userId: userId,
+    app_id: appId,
+    appId: appId,
+    run_id: sessionId,
+    runId: sessionId,
+    agent_id: appId,
+    agentId: appId,
+  }
+}
+
 function summarizeMessages(messages: ChatMessage[]) {
   return messages
     .slice(-8)
@@ -138,8 +152,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
               content: summary,
             } satisfies Mem0Message,
           ],
-          user_id: userId,
-          app_id: appId,
+          ...buildMem0IdentityFields(userId, appId, sessionId),
           filters: buildMem0Filters(userId, appId),
         }),
         { sessionId },
@@ -163,7 +176,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         () => ({
           query: 'recent companion memories',
           limit,
-          app_id: appId,
+          ...buildMem0IdentityFields(undefined, appId),
           filters: buildMem0Filters(undefined, appId),
         }),
       )
@@ -189,8 +202,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         (userId, resolvedAppId) => ({
           query,
           limit,
-          user_id: userId,
-          app_id: resolvedAppId,
+          ...buildMem0IdentityFields(userId, resolvedAppId, sessionId),
           filters: buildMem0Filters(userId, resolvedAppId),
         }),
         { sessionId, appId },
@@ -221,8 +233,7 @@ export function createMem0MemoryStore(config: Mem0ClientConfig) {
         'remember',
         (userId, resolvedAppId) => ({
           messages: [{ role: 'user', content: summary } satisfies Mem0Message],
-          user_id: userId,
-          app_id: resolvedAppId,
+          ...buildMem0IdentityFields(userId, resolvedAppId, sessionId),
           filters: buildMem0Filters(userId, resolvedAppId),
         }),
         { sessionId, appId },
