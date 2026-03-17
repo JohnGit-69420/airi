@@ -6,6 +6,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 import { client } from '../../composables/api'
+import { appendCompanionMessage, createCompanionSession, getCompanionSessionDetails, isCompanionSyncEnabled } from '../../composables/companion-api'
 import { useLocalFirstRequest } from '../../composables/use-local-first'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
@@ -30,7 +31,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   let persistQueue = Promise.resolve()
   let syncQueue = Promise.resolve()
   const loadedSessions = new Set<string>()
+  const companionSyncedMessageIds = ref<Record<string, Record<string, true>>>({})
+  const companionSyncedMessageKeyCounts = ref<Record<string, Record<string, number>>>({})
   const loadingSessions = new Map<string, Promise<void>>()
+  let lifecycleSyncBound = false
 
   // I know this nu uh, better than loading all language on rehypeShiki
   const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
@@ -99,6 +103,69 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       content: extractMessageContent(message),
       createdAt: message.createdAt,
     }))
+  }
+
+  function buildCompanionMessageKey(role: 'system' | 'user' | 'assistant', content: string) {
+    return `${role}\u001F${content}`
+  }
+
+  async function mergeCompanionMessagesIntoSession(sessionId: string, remoteMessages: Array<{ clientMessageId?: string, role: 'system' | 'user' | 'assistant', content: string, createdAt: string }>) {
+    if (remoteMessages.length === 0)
+      return
+
+    const localMessages = ensureSessionMessageIds(sessionId)
+    const localById = new Set(localMessages.map(message => message.id).filter((id): id is string => Boolean(id)))
+    const localKeyCounts: Record<string, number> = {}
+
+    for (const localMessage of localMessages) {
+      if (localMessage.role !== 'system' && localMessage.role !== 'user' && localMessage.role !== 'assistant')
+        continue
+      const content = extractMessageContent(localMessage).trim()
+      if (!content)
+        continue
+      const key = buildCompanionMessageKey(localMessage.role, content)
+      localKeyCounts[key] = (localKeyCounts[key] ?? 0) + 1
+    }
+
+    const remoteSeenKeyCounts: Record<string, number> = {}
+    const messagesToAppend: ChatHistoryItem[] = []
+
+    for (const remoteMessage of remoteMessages) {
+      if (remoteMessage.role === 'system')
+        continue
+
+      const content = remoteMessage.content.trim()
+      if (!content)
+        continue
+
+      if (remoteMessage.clientMessageId && localById.has(remoteMessage.clientMessageId))
+        continue
+
+      const key = buildCompanionMessageKey(remoteMessage.role, content)
+      remoteSeenKeyCounts[key] = (remoteSeenKeyCounts[key] ?? 0) + 1
+      if (remoteSeenKeyCounts[key] <= (localKeyCounts[key] ?? 0))
+        continue
+
+      const id = remoteMessage.clientMessageId ?? nanoid()
+      localById.add(id)
+      localKeyCounts[key] = (localKeyCounts[key] ?? 0) + 1
+      messagesToAppend.push({
+        id,
+        role: remoteMessage.role,
+        content,
+        createdAt: Number.isFinite(Date.parse(remoteMessage.createdAt))
+          ? Date.parse(remoteMessage.createdAt)
+          : Date.now(),
+      } as ChatHistoryItem)
+    }
+
+    if (messagesToAppend.length === 0)
+      return
+
+    const nextMessages = [...localMessages, ...messagesToAppend]
+    nextMessages.sort((left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0))
+    sessionMessages.value[sessionId] = nextMessages
+    await persistSession(sessionId)
   }
 
   async function syncSessionToRemote(sessionId: string) {
@@ -170,7 +237,211 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       catch (error) {
         console.warn('Failed to sync chat session', error)
       }
+
+      try {
+        await syncSessionToCompanion(sessionId)
+      }
+      catch (error) {
+        console.warn('Failed to sync companion chat session', error)
+      }
     })
+  }
+
+
+  function resolveCompanionClientType(): 'desktop' | 'web' | 'mobile' | 'other' {
+    if (typeof navigator === 'undefined')
+      return 'other'
+
+    if (navigator.userAgent.includes('Electron'))
+      return 'desktop'
+
+    return 'web'
+  }
+
+  async function ensureCompanionSession(sessionId: string) {
+    const meta = sessionMetas.value[sessionId]
+    if (!meta)
+      return null
+
+    if (meta.companionSessionId)
+      return meta.companionSessionId
+
+    const companionSessionId = await createCompanionSession({
+      clientId: `${meta.userId}:${meta.characterId}`,
+      clientType: resolveCompanionClientType(),
+    })
+
+    const nextMeta = {
+      ...meta,
+      companionSessionId,
+    }
+
+    sessionMetas.value[sessionId] = nextMeta
+    const characterIndex = index.value?.characters[meta.characterId]
+    if (characterIndex)
+      characterIndex.sessions[sessionId] = nextMeta
+
+    const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
+    const record: ChatSessionRecord = {
+      meta: nextMeta,
+      messages,
+    }
+
+    await enqueuePersist(() => chatSessionsRepo.saveSession(sessionId, record))
+    await persistIndex()
+    return companionSessionId
+  }
+
+  async function updateCompanionSessionMeta(sessionId: string, companionSessionId: string) {
+    const meta = sessionMetas.value[sessionId]
+    if (!meta || meta.companionSessionId === companionSessionId)
+      return
+
+    const nextMeta = {
+      ...meta,
+      companionSessionId,
+    }
+
+    sessionMetas.value[sessionId] = nextMeta
+    const characterIndex = index.value?.characters[meta.characterId]
+    if (characterIndex)
+      characterIndex.sessions[sessionId] = nextMeta
+
+    const messages = snapshotMessages(ensureSessionMessageIds(sessionId))
+    await enqueuePersist(() => chatSessionsRepo.saveSession(sessionId, { meta: nextMeta, messages }))
+    await persistIndex()
+  }
+
+  async function syncSessionToCompanion(sessionId: string) {
+    if (!isCompanionSyncEnabled())
+      return
+
+    const messages = ensureSessionMessageIds(sessionId)
+    if (messages.length === 0)
+      return
+
+    let companionSessionId = await ensureCompanionSession(sessionId)
+    if (!companionSessionId)
+      return
+
+    const details = await getCompanionSessionDetails(companionSessionId)
+    await mergeCompanionMessagesIntoSession(sessionId, details.messages)
+
+    const syncedIds: Record<string, true> = {
+      ...companionSyncedMessageIds.value[sessionId],
+    }
+    for (const message of details.messages) {
+      if (message.clientMessageId)
+        syncedIds[message.clientMessageId] = true
+    }
+
+    let syncedKeyCounts = companionSyncedMessageKeyCounts.value[sessionId]
+    if (!syncedKeyCounts) {
+      syncedKeyCounts = {}
+      for (const message of details.messages) {
+        const content = message.content.trim()
+        if (!content)
+          continue
+        const key = buildCompanionMessageKey(message.role, content)
+        syncedKeyCounts[key] = (syncedKeyCounts[key] ?? 0) + 1
+      }
+      companionSyncedMessageKeyCounts.value[sessionId] = syncedKeyCounts
+    }
+
+    const localSeenKeyCounts: Record<string, number> = {}
+
+    for (const message of messages) {
+      const content = extractMessageContent(message).trim()
+      if (!content)
+        continue
+
+      if (message.role !== 'system' && message.role !== 'user' && message.role !== 'assistant')
+        continue
+
+      if (message.id && syncedIds[message.id])
+        continue
+
+      const key = buildCompanionMessageKey(message.role, content)
+      localSeenKeyCounts[key] = (localSeenKeyCounts[key] ?? 0) + 1
+      const syncedCountForKey = syncedKeyCounts[key] ?? 0
+
+      if (localSeenKeyCounts[key] <= syncedCountForKey)
+        continue
+
+      const appendResult = await appendCompanionMessage({
+        sessionId: companionSessionId,
+        role: message.role,
+        content,
+        clientMessageId: message.id,
+      })
+
+      if (appendResult.rolledOverSessionId && appendResult.rolledOverSessionId !== companionSessionId) {
+        companionSyncedMessageIds.value[sessionId] = {}
+        companionSyncedMessageKeyCounts.value[sessionId] = {}
+        for (const key of Object.keys(syncedIds))
+          delete syncedIds[key]
+        syncedKeyCounts = {}
+        companionSessionId = appendResult.rolledOverSessionId
+        await updateCompanionSessionMeta(sessionId, appendResult.rolledOverSessionId)
+      }
+
+      if (message.id)
+        syncedIds[message.id] = true
+
+      syncedKeyCounts[key] = syncedCountForKey + 1
+    }
+
+    companionSyncedMessageIds.value[sessionId] = syncedIds
+    companionSyncedMessageKeyCounts.value[sessionId] = syncedKeyCounts
+  }
+
+  async function ensureCompanionSessionId(sessionId: string) {
+    if (!isCompanionSyncEnabled())
+      return null
+
+    return await ensureCompanionSession(sessionId)
+  }
+
+
+  async function flushPersistAndSyncQueues() {
+    await persistQueue
+    await syncQueue
+  }
+
+  function getKnownSessionIds() {
+    return Array.from(new Set([
+      ...Object.keys(sessionMetas.value),
+      ...Object.keys(sessionMessages.value),
+    ]))
+  }
+
+  async function syncAllKnownSessions() {
+    const sessionIds = getKnownSessionIds()
+    for (const sessionId of sessionIds)
+      scheduleSync(sessionId)
+
+    await flushPersistAndSyncQueues()
+  }
+
+  function bindLifecycleSync() {
+    if (lifecycleSyncBound)
+      return
+
+    if (typeof window === 'undefined' || typeof document === 'undefined')
+      return
+
+    const flushOnLifecycle = () => {
+      void syncAllKnownSessions()
+    }
+
+    window.addEventListener('beforeunload', flushOnLifecycle)
+    window.addEventListener('pagehide', flushOnLifecycle)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden')
+        flushOnLifecycle()
+    })
+
+    lifecycleSyncBound = true
   }
 
   function generateInitialMessageFromPrompt(prompt: string) {
@@ -351,6 +622,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     initializing.value = true
     initializePromise = (async () => {
       await ensureActiveSessionForCharacter()
+      bindLifecycleSync()
+      await syncAllKnownSessions()
       ready.value = true
     })()
 
@@ -431,6 +704,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
+    companionSyncedMessageIds.value = {}
+    companionSyncedMessageKeyCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
@@ -515,6 +790,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     sessionMessages.value = {}
     sessionMetas.value = {}
     sessionGenerations.value = {}
+    companionSyncedMessageIds.value = {}
+    companionSyncedMessageKeyCounts.value = {}
     loadedSessions.clear()
     loadingSessions.clear()
 
@@ -553,6 +830,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     setSessionMessages,
     persistSessionMessages,
     getSessionMessages,
+    ensureCompanionSessionId,
     sessionMessages,
     sessionMetas,
     getSessionGeneration,

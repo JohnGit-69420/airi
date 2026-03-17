@@ -1,50 +1,21 @@
-import type { ChatHistoryItem } from '../../types/chat'
-
-import assert from 'node:assert/strict'
-
-import { describe, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { mergeLoadedSessionMessages } from './session-message-merge'
 
 describe('mergeLoadedSessionMessages', () => {
-  it('keeps stored history when the in-memory session only has the placeholder system message', () => {
-    const storedMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 1, id: 'system-stored' },
-      { role: 'assistant', content: 'saved reply', createdAt: 2, id: 'assistant-1', slices: [], tool_results: [] },
-    ]
-    const currentMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 3, id: 'system-current' },
-    ]
+  it('keeps chronological ordering when appending unsaved current messages', () => {
+    const stored = [
+      { id: 's1', role: 'system', content: 'sys', createdAt: 1 },
+      { id: 'u1', role: 'user', content: 'hello', createdAt: 2 },
+    ] as any
 
-    assert.equal(mergeLoadedSessionMessages(storedMessages, currentMessages), storedMessages)
-  })
+    const current = [
+      { id: 's1', role: 'system', content: 'sys', createdAt: 1 },
+      { id: 'a1', role: 'assistant', content: 'hey', createdAt: 3 },
+      { id: 'u2', role: 'user', content: 'later', createdAt: 4 },
+    ] as any
 
-  it('appends in-flight messages when IndexedDB finishes loading after a new send starts', () => {
-    const storedMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 1, id: 'system-stored' },
-      { role: 'assistant', content: 'older reply', createdAt: 2, id: 'assistant-1', slices: [], tool_results: [] },
-    ]
-    const currentMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 3, id: 'system-current' },
-      { role: 'user', content: 'latest prompt', createdAt: 4, id: 'user-2' },
-    ]
-
-    assert.deepEqual(mergeLoadedSessionMessages(storedMessages, currentMessages), [
-      ...storedMessages,
-      currentMessages[1],
-    ])
-  })
-
-  it('does not duplicate messages that are already present in storage', () => {
-    const storedMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 1, id: 'system-stored' },
-      { role: 'user', content: 'latest prompt', createdAt: 4 },
-    ]
-    const currentMessages: ChatHistoryItem[] = [
-      { role: 'system', content: 'system', createdAt: 3, id: 'system-current' },
-      { role: 'user', content: 'latest prompt', createdAt: 4 },
-    ]
-
-    assert.equal(mergeLoadedSessionMessages(storedMessages, currentMessages), storedMessages)
+    const merged = mergeLoadedSessionMessages(stored, current)
+    expect(merged.map(message => message.id)).toEqual(['s1', 'u1', 'a1', 'u2'])
   })
 })

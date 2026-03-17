@@ -1,5 +1,6 @@
 export * from './audio'
 export * from './canvas-alpha'
+export * from './companion-api'
 export * from './llm-marker-parser'
 export * from './markdown'
 export * from './queues'
