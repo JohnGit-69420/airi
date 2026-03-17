@@ -153,6 +153,7 @@ Expected outcome:
 - `search` returns at least one relevant hit for `favorite color`.
 
 If failures occur, inspect the JSON error body (`memory_remember_failed` / `memory_search_failed`) and adjust `MEM0_AUTH_SCHEME` or `MEM0_APP_ID` accordingly.
+If you recently updated backend code or `.env`, restart the backend process before retrying so the new mem0 payload behavior is active.
 
 7. List available integrations and invoke the sample read-only integration:
 
